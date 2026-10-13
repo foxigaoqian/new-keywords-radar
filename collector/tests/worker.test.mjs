@@ -11,7 +11,7 @@ class FakeDB {
     async first(){if(sql.startsWith("SELECT record_json"))return self.records.get(args[0])||null;return null},
     async run(){
       if(sql.startsWith("INSERT INTO collector_runs"))self.runs.set(args[0],{id:args[0],status:"running"});
-      if(sql.startsWith("UPDATE collector_runs"))self.runs.set(args[4],{status:args[1],matched:args[2],errors:args[3]});
+      if(sql.startsWith("UPDATE collector_runs"))self.runs.set(args[5],{status:args[1],matched:args[2],errors:args[3],sources:JSON.parse(args[4])});
       if(sql.startsWith("INSERT INTO opportunities")){
         const [id,keyword,normalized_key,stage,rubric_score,origin_count,evidence_count,intent_signature,record_json]=args;
         const old=self.records.get(id)||{};
