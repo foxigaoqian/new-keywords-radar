@@ -57,8 +57,7 @@ async function pull(topic,now,fetcher=fetch){
 function mergeEvidence(existing,next){
   const found=new Map();
   for(const row of [...(Array.isArray(existing)?existing:[]),...next]){
-    if(typeof row?.url==="string"&&row.url.startsWith("https://news.ycombinator.com/item?id="))
-      found.set(row.url,row);
+    if(typeof row?.url==="string"&&/^https?:\/\//.test(row.url))found.set(row.url,row);
   }
   return [...found.values()].sort((a,b)=>String(b.published_at||"").localeCompare(String(a.published_at||""))).slice(0,30);
 }
@@ -71,7 +70,7 @@ export async function ingest(env,topic,evidence,now=Date.now()){
   const origins=[...new Set([...(Array.isArray(original.origins)?original.origins:[]),"hn-topic-watchlist"])];
   const row={
     ...original,keyword:original.keyword||topic.keyword,kind:original.kind||"generic",
-    origins,evidence:merged,independent_evidence_sites:["news.ycombinator.com"],
+    origins,evidence:merged,independent_evidence_sites:[...new Set(merged.map(e=>{try{return new URL(e.url).hostname.replace(/^www\./,"")}catch{return""}}).filter(Boolean))],
     personas:Array.isArray(original.personas)?original.personas:[],
     scenes:Array.isArray(original.scenes)?original.scenes:[],
     actions:Array.isArray(original.actions)?original.actions:[],
