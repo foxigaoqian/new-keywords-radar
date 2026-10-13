@@ -106,7 +106,10 @@ async function run(req,env){
   }
   if(url.pathname==="/api/export"&&req.method==="GET"){
     const rows=await env.DB.prepare("SELECT * FROM opportunities ORDER BY rubric_score DESC LIMIT 5000").all();
-    return send({exported_at:new Date().toISOString(),opportunities:(rows.results||[]).map(display)});
+    const assessments=await env.DB.prepare("SELECT * FROM opportunity_assessments ORDER BY evaluated_at DESC LIMIT 5000").all();
+    return send({exported_at:new Date().toISOString(),opportunities:(rows.results||[]).map(display),
+      assessments:(assessments.results||[]).map(x=>({...x,
+        snapshot:JSON.parse(x.snapshot_json||"{}"),labels:JSON.parse(x.labels_json||"[]")}))});
   }
   if(url.pathname==="/api/import"&&req.method==="POST")return send(await importReport(env,await parseBody(req)));
 
