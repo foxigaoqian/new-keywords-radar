@@ -14,7 +14,7 @@ V3 把趋势、新用户任务、真实问题引用、SEO 搜索量和 SERP 原�
 
 ## 本地安装
 
-在仓库根目录执行以下命令：
+当前部署已创建 D1（名称 seo-opportunity-radar，ID c6bd32b0-5508-48b1-a544-4578bf478d96），一般不需要再次创建。若需要在其他账户独立部署，再执行：
 
     cd dashboard
     npm install
@@ -36,7 +36,7 @@ V3 把趋势、新用户任务、真实问题引用、SEO 搜索量和 SERP 原�
 
 可在本地用 openssl rand -hex 32 生成长随机密钥。密钥不得写入前端代码、公开仓库或日志。建议同时通过 Cloudflare Access 限制可见人群。
 
-默认 workers_dev=false，需要你在 Cloudflare 绑定受控域名路由，或在安全策略就绪时将其改为 true 以开通 workers.dev 地址。仅进行部署，不等于有可访问的公开域名。
+当前已经使用 Cloudflare API 在账户内创建独立 Worker 与专用 D1 数据库，启用了 workers.dev。线上地址：https://seo-opportunity-workbench.foxigaoqian-soocly.workers.dev/ 。此 Worker 的 API 要求 ADMIN_TOKEN；静态登录界面本身可以匿名访问。未来若改用 Wrangler 重新部署，worker 会以静态资产方式打包，wrangler.toml 已启用 workers_dev=true。
 
 ## 生成和上传
 
@@ -81,3 +81,7 @@ CI 会使用 Python 3.10 / 3.12 和 Node 22 测试。Cloudflare 上的真实部�
 ## 后续
 
 补充有授权的 Reddit / 产品评论源；基于 SERP 的搜索意图实际对比；GSC 效果回流、日后收益复盘和人群/关键词语义聚类。
+
+## 2026-10-13 线上验收
+
+Cloudflare API 返回 Worker 已部署且分配全部流量，DB/ADMIN_TOKEN 两个绑定均存在，workers.dev 已启用。GitHub Actions live-smoke 确认：首页 200、app.js 和 CSS 200、/api/health ready=true、无密钥 /api/items 返回 401。线上 D1 表结构已创建且当前 0 条记录。正向认证后的浏览器导入/保存尚未在公开 smoke 测试中执行（避免泄露管理员密钥）。
