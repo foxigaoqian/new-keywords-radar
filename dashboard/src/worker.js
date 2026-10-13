@@ -1,3 +1,5 @@
+import {readAssessment,saveAssessment} from "./assessment.js";
+import {importSeoReview} from "./seo-import.js";
 /** Protected Cloudflare D1 opportunity management API. ADMIN_TOKEN required. */
 const encoder = new TextEncoder();
 const STATES = new Set(["inbox","watch","build","reject"]);
@@ -107,6 +109,20 @@ async function run(req,env){
     return send({exported_at:new Date().toISOString(),opportunities:(rows.results||[]).map(display)});
   }
   if(url.pathname==="/api/import"&&req.method==="POST")return send(await importReport(env,await parseBody(req)));
+
+  if(url.pathname==="/api/import-seo"&&req.method==="POST"){
+    try{return send(await importSeoReview(env.DB,await parseBody(req)))}
+    catch(e){if(/^Invalid SEO import|^Invalid keyword/.test(String(e.message)))return fail(e.message,400);throw e}
+  }
+  const assessment=url.pathname.match(/^\/api\/items\/([a-f0-9]{64})\/assessment$/);
+  if(assessment&&req.method==="GET"){
+    const data=await readAssessment(env.DB,assessment[1]);return data?send(data):fail("Item not found",404);
+  }
+  if(assessment&&req.method==="POST"){
+    try{const data=await saveAssessment(env.DB,assessment[1],await parseBody(req));return data?send(data):fail("Item not found",404)}
+    catch(e){if(/^(Invalid|Only|Build days|Classification)/.test(String(e.message)))return fail(e.message,400);throw e}
+  }
+
   const match=url.pathname.match(/^\/api\/items\/([a-f0-9]{64})\/decision$/);
   if(match&&req.method==="POST")return decision(env,match[1],await parseBody(req));
   return fail("Not found",404);
