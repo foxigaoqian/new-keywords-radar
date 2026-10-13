@@ -28,7 +28,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import breakout, config, gsc, new_sites, notify, report, review, sitemaps, sources, store, usecases
+from . import breakout, config, gsc, new_sites, notify, opportunities, report, review, sitemaps, sources, store, usecases
 from .i18n import t
 
 SKIPPABLE = {"x", "hf", "breakout", "sitemaps", "newsites", "gsc", "review", "judge", "usecases"}
@@ -99,14 +99,19 @@ def cmd_daily(args, cfg: dict, state: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="python -m radar", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", choices=["daily", "sources"])
+    p.add_argument("command", choices=["daily", "sources", "opportunities"])
     p.add_argument("--config", default="config.json")
     p.add_argument("--state", default="state", help="directory for radar.db and the snapshots")
     p.add_argument("--out", help="write the report (Markdown) here; `daily` also writes a .json beside it")
     p.add_argument("--skip", default="", help="comma-separated: " + ",".join(sorted(SKIPPABLE)))
     p.add_argument("--new-sites", action="store_true", help="run the weekly new-site signal today")
     p.add_argument("--mail", action="store_true", help="mail the report (see radar/notify.py)")
+    p.add_argument("--input", default="opportunities.example.json", help="persona task hypotheses JSON for opportunities command")
+    p.add_argument("--radar-json", help="optional daily report.json to merge trend signals")
     args = p.parse_args(argv)
+    if args.command == "opportunities":
+        args.out = args.out or "opportunities.md"
+        return opportunities.command(args)
     args.skip = {s for s in args.skip.split(",") if s}
     unknown = args.skip - SKIPPABLE
     if unknown:
