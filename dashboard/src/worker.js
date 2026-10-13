@@ -52,13 +52,14 @@ function display(row){let original={};try{original=JSON.parse(row.record_json)}c
 }
 async function listing(env,url){
   const limit=number(url.searchParams.get("limit"),1,100,50),offset=number(url.searchParams.get("offset"),0,100000,0);
-  const status=url.searchParams.get("status")||"all",stage=url.searchParams.get("stage")||"all",query=safe(url.searchParams.get("q"),100);
+  const status=url.searchParams.get("status")||"all",stage=url.searchParams.get("stage")||"all",query=safe(url.searchParams.get("q"),100),intent=safe(url.searchParams.get("intent"),400);
   if(status!=="all"&&!STATES.has(status))return fail("Invalid review status",400);
   if(stage!=="all"&&!["hypothesis","needs-evidence","manual-review"].includes(stage))return fail("Invalid stage",400);
   const rules=[],args=[];
   if(status!=="all"){rules.push("review_status=?");args.push(status)}
   if(stage!=="all"){rules.push("stage=?");args.push(stage)}
   if(query){rules.push("instr(lower(keyword),lower(?))>0");args.push(query)}
+  if(intent){rules.push("intent_signature=?");args.push(intent)}
   const where=rules.length?" WHERE "+rules.join(" AND "):"";
   const total=await env.DB.prepare("SELECT count(*) AS count FROM opportunities"+where).bind(...args).first();
   const result=await env.DB.prepare("SELECT * FROM opportunities"+where+
