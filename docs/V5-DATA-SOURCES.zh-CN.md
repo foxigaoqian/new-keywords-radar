@@ -39,3 +39,15 @@ Google Ads 竞争指数不等于自然排名 KD，DataForSEO 的 KD 也不是能
 
 pytest + Node tests 覆盖 API 输入、时间限制、分页上限、来源链接验证、backoff、无搜索量、数据合并。
 真实 SEO 机会仍需核验美国 Google SERP 前十、建站成本、商业模式；社区帖子不是销售订单。
+
+
+## 2026-10-13 线上验证记录与当前限制
+
+- D1 source_counts_json 和 collector_provider_state 已完成迁移。
+- Cloudflare collector V5 模块上传成功；Dashboard 新版已上传，ADMIN_TOKEN 使用 Cloudflare API 的 inherit 绑定保留（未暴露或更换现有密钥）。
+- Hacker News 真实在线采集仍正常。
+- Stack Exchange 在此 Cloudflare 出口调用官方 API 曾返回 HTTP 400 / 429。故此**不能声称 Stack Exchange 已经成功采集用户问题**。已将它的查询改为更简洁的官方参数，并在任何 HTTP 错误时停止整批后续调用。
+- 已为 Stack Exchange 设置独立的 provider_state 记录和跨 Cron 生效的 22-24 小时冷却。遇限流时不继续重试其他主题；当前已手动按上一次 429 错误设置至少一天冷却，避免多次触发。HN 每日采集不受影响。
+- 如果冷却后仍连续发生 400 / 429，应核查 API 返回的具体错误文本、部署出口的访问限制和 API 账号配额。不可将这些失败记为已得到真实需求。
+- DataForSEO Labs 模块只通过 --paid 显式调用；此轮没有使用付费凭据、没有产生付费查询，也没有声称发现已验证的关键词量。
+- CI 针对最新提交通过；测试属于模块/逻辑/模拟数据验收，不等于 Stack Exchange 线上数据 API 验收。
