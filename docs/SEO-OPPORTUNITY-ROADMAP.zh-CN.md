@@ -35,3 +35,67 @@
 ## 验收
 
 原来的 daily / sources 命令继续可用；新命令支持原数据并能生成 Markdown 与 JSON；无密钥可跑；测试覆盖去重、无搜索量、证据域名、CLI 和无效输入。
+
+
+## 第二阶段已实现：真实讨论 → 场景动作 → 搜索结果快照
+
+本阶段新增 research、journeys、verify 三个命令；付费 API 和外部网络都需要显式 opt-in。
+
+### A. HN 公开讨论采集（免费）
+
+修改 research.example.json 的 queries 数组，按 keyword / query / pain_terms 指定需要研究的任务，而不是伪造 Google 搜索量。
+
+离线测试：
+    python -m radar research --input research.example.json --fixture tests/fixtures/hn_research.json --out research.hn.json
+
+联网采集：
+    python -m radar research --input research.example.json --out research.hn.json --days 30 --live
+
+输出评论链接、简短原文、发布时间、采集时间。每个词最多 8 条，至多查询 20 个；HN 用户具有技术圈样本偏差，评论证据不能代替 Google 搜索量。
+
+### B. AI 有出处的需求旅程（可选付费）
+
+离线测试：
+    python -m radar journeys --input research.hn.json --fixture tests/fixtures/hn_model_replies.json --out journeys.json
+
+真实模型（需要环境变量 AISA_API_KEY）：
+    python -m radar journeys --input research.hn.json --out journeys.json --ai --limit 5
+
+必须使用输入中的 evidence ID，若不存在的来源 ID、无实际动作、无关键词则直接丢弃，不把模型假设冒充真实搜索数据。
+
+### C. 合并机会队列
+
+    python -m radar opportunities --input journeys.json --research-json research.hn.json --out opportunities.md
+
+生成 opportunities.md 和 opportunities.json。AI 生成的场景关键词保留原讨论链接（支持任务存在，不代表用户实际搜索该关键词）；原始监控词也可以作为单独候选。
+
+### D. DataForSEO 实时搜索量 / SERP（付费、默认关闭）
+
+DataForSEO 正式 API：Google Ads Search Volume、Google Organic Live Advanced。
+默认 US(2840)、英语、桌面、前十自然结果；每批默认最多五个、硬限制 20 个。
+
+离线测试：
+    python -m radar opportunities --input opportunities.example.json --out opportunities.md
+    python -m radar verify --input opportunities.json --fixture tests/fixtures/dataforseo_research.json --out research.seo.json
+
+真实验证：预先在环境变量配置 DATAFORSEO_LOGIN 和 DATAFORSEO_PASSWORD，显式加 --paid：
+    python -m radar verify --input opportunities.json --limit 5 --paid --out research.seo.json
+
+API 根据实际使用扣费（批量搜索量一次 + 每词 SERP 一次）；命令不会自动判定 SEO KD。只保留 API 中有值的搜索量、CPC、广告竞争指数、原始 SERP 位置、title、URL 和功能区。
+注意 Google Ads 竞争指数不是自然搜索 KD，0 搜索量和 API 无数据不一样。
+
+再合并：
+    python -m radar opportunities --input journeys.json --research-json research.hn.json --research-json research.seo.json --out opportunities.md
+
+### E. GitHub Actions（初始关闭）
+
+新增 .github/workflows/research.yml；需要在仓库 Actions Variables 将 RESEARCH_ENABLED=true 才会执行（每天一次，也可手动触发）。
+未配置 AISA_API_KEY 时只采集 HN；配置后会调用最多五个 AI 任务并产生费用。绝不会由工作流自动调用 DataForSEO 付费 SERP。
+应该优先将 research.example.json 演示查询换成实际监控词，并保证密钥从 Secrets 注入。
+
+### 后续未完成
+
+- Reddit 官方 API / HN 之外的用户评论源、Search Suggest 真实搜索表达、同义意图聚类；
+- SERP 前十人工分类与多日期跟踪、已有站点归属与工具制作建议；
+- Cloudflare D1 存储与操作看板；
+- GitHub Actions 实际测试尚待仓库功能可用后验收；PR 提交不是测试或线上 API 运行成功的证明。
