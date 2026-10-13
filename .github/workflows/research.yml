@@ -40,6 +40,16 @@ jobs:
             python -m radar opportunities --input opportunities.example.json --research-json research.hn.json --out opportunities.md
           fi
           cat opportunities.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Sync evidence-grounded opportunities to private Cloudflare workbench
+        env:
+          WORKBENCH_URL: ${{ vars.WORKBENCH_URL }}
+          WORKBENCH_ADMIN_TOKEN: ${{ secrets.WORKBENCH_ADMIN_TOKEN }}
+        run: |
+          if [ -f journeys.json ] && [ -n "$WORKBENCH_URL" ] && [ -n "$WORKBENCH_ADMIN_TOKEN" ]; then
+            python scripts/sync_workbench.py --input opportunities.json
+          else
+            echo "Workbench sync skipped (no grounded AI journeys or dashboard credentials)."
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
