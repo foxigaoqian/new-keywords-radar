@@ -8,12 +8,14 @@ class FakeDB {
   constructor(){this.records=new Map();this.runs=new Map();this.provider=null;}
   prepare(sql){let args=[];const self=this;const stmt={
     bind(...items){args=items;return this},
-    async first(){if(sql.startsWith("SELECT record_json"))return self.records.get(args[0])||null;if(sql.startsWith("SELECT blocked_until"))return self.provider;return null},
+    async first(){if(sql.startsWith("SELECT record_json"))return self.records.get(args[0])||null;if(sql.startsWith("SELECT blocked_until"))return self.provider;
+      if(sql.startsWith("SELECT started_at FROM collector_runs"))return [...self.runs.values()].filter(x=>x.status==="completed"||x.status==="partial").sort((a,b)=>a.started_at.localeCompare(b.started_at)).at(-1)||null;
+      return null},
     async run(){
-      if(sql.startsWith("INSERT INTO collector_runs"))self.runs.set(args[0],{id:args[0],status:"running"});
+      if(sql.startsWith("INSERT INTO collector_runs"))self.runs.set(args[0],{id:args[0],started_at:args[1],status:"running"});
       if(sql.startsWith("INSERT INTO collector_provider_state"))self.provider={blocked_until:args[2],last_attempted_at:args[1]};
       if(sql.startsWith("UPDATE collector_provider_state"))self.provider={...self.provider,blocked_until:args[0],last_error:args[1]};
-      if(sql.startsWith("UPDATE collector_runs"))self.runs.set(args[5],{status:args[1],matched:args[2],errors:args[3],sources:JSON.parse(args[4])});
+      if(sql.startsWith("UPDATE collector_runs"))self.runs.set(args[5],{...self.runs.get(args[5]),status:args[1],matched:args[2],errors:args[3],sources:JSON.parse(args[4])});
       if(sql.startsWith("INSERT INTO opportunities")){
         const [id,keyword,normalized_key,stage,rubric_score,origin_count,evidence_count,intent_signature,record_json]=args;
         const old=self.records.get(id)||{};
@@ -143,4 +145,16 @@ test("provider cooldown prevents repeat requests and preserves HN independently"
   const next=await collect({DB:db},{now:now+60*60*1000,topics:[],stackTopics:[site],stackFetcher:request});
   assert.equal(next.sources.stackexchange_status,"cooldown");
   assert.equal(calls,1);
+});
+
+test("duplicate Cloudflare Cron cannot re-query HN within 20 hours",async()=>{
+  const db=new FakeDB(),env={DB:db},q={keyword:"test compress image",query:"image",require:[["image"],["compress"]]};
+  let fetchCalls=0;
+  const fetcher=async()=>{fetchCalls++;return {ok:true,json:async()=>({hits:[]})}};
+  const first=await collect(env,{now,topics:[q],stackTopics:[],fetcher,skipIfRecent:true});
+  assert.equal(first.status,"completed");
+  const second=await collect(env,{now:now+3600000,topics:[q],stackTopics:[],fetcher,skipIfRecent:true});
+  assert.equal(second.status,"skipped");
+  assert.equal(fetchCalls,1);
+  assert.equal(db.runs.size,1);
 });
