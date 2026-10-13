@@ -53,6 +53,8 @@ def load_hn(query, days):
 
 def parse_hits(answer, keyword, cues=None):
     """Filter dated comment hits; retain exact permalink/quote. No fake persona evidence."""
+    if not isinstance(answer, dict):
+        return []
     cues = [c.casefold() for c in (cues or []) if isinstance(c, str) and c.strip()]
     found = []
     seen = set()
