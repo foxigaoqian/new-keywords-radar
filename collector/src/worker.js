@@ -17,12 +17,27 @@ function plain(markup){
       return ({"amp":"&","lt":"<","gt":">","quot":'"',"apos":"'","nbsp":" "}[name.toLowerCase()]||" ");
     }));
 }
-function includesTerm(text,word){return text.includes(word.toLowerCase());}
-export function matches(text,topic){
+const PROFILE_MARKERS=[/location:[^\n]{0,180}remote:/i,/technologies:/i,
+  /willing to relocate:/i,/resume\/cv:\s*https?:/i,/linkedin:\s*https?:/i];
+function excerpt(text,topic){
+  if(PROFILE_MARKERS.some(re=>re.test(text)))return "";
   const lower=text.toLowerCase();
-  return NEED_WORDS.some(x=>includesTerm(lower,x)) &&
-    topic.require.every(group=>group.some(word=>includesTerm(lower,word)));
+  for(const cue of NEED_WORDS){
+    let at=lower.indexOf(cue),trials=0;
+    while(at>=0&&trials++<8){
+      const start=Math.max(0,at-50),end=Math.min(lower.length,at+280);
+      const snippet=lower.slice(start,end);
+      if(topic.require.every(group=>group.some(word=>snippet.includes(word.toLowerCase())))){
+        return text.slice(start,end)
+          .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,"[email redacted]")
+          .replace(/\+?\d[\d\s().-]{9,}\d/g,"[phone redacted]");
+      }
+      at=lower.indexOf(cue,at+cue.length);
+    }
+  }
+  return "";
 }
+export function matches(text,topic){return Boolean(excerpt(text,topic));}
 export function extract(response,topic,now=Date.now()){
   const rows=Array.isArray(response?.hits)?response.hits:[],seen=new Set(),out=[];
   const earliest=now-DAYS*86400000;
@@ -30,11 +45,11 @@ export function extract(response,topic,now=Date.now()){
     if(!item||typeof item!=="object")continue;
     const id=String(item.objectID||""),date=Date.parse(item.created_at||"");
     if(!/^[0-9]+$/.test(id)||!Number.isFinite(date)||date<earliest||date>now+86400000||seen.has(id))continue;
-    const quote=plain(item.comment_text);
-    if(quote.length<55||!matches(quote,topic))continue;
+    const quote=plain(item.comment_text),snippet=quote.length>=55?excerpt(quote,topic):"";
+    if(!snippet||snippet.length<45)continue;
     seen.add(id);
     out.push({url:"https://news.ycombinator.com/item?id="+id,type:"hacker-news-comment",
-      note:quote.slice(0,420),published_at:new Date(date).toISOString(),
+      note:snippet.slice(0,420),published_at:new Date(date).toISOString(),
       collected_at:new Date(now).toISOString(),source:"hn-algolia-public-api",
       source_query:topic.query,verified:false});
     if(out.length>=MAX_EVIDENCE)break;
