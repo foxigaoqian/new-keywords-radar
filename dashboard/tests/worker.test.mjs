@@ -92,3 +92,16 @@ test("auth needed for export; static assets do not use API auth",async()=>{
 test("normalization preserves meaningful file size distinctions",()=>{
   assert.notEqual(testHooks.normalize("image compressor 20kb"),testHooks.normalize("image compressor 200kb"));
 });
+
+test("authenticated manual collection uses private service binding, not public fetch",async()=>{
+  const e=env();
+  let calls=0;
+  e.COLLECTOR={fetch:async request=>{calls++;assert.equal(new URL(request.url).pathname,"/internal/collect");
+    assert.equal(request.method,"POST");return new Response(JSON.stringify({status:"completed",topics:12,matched:3}),{headers:{"content-type":"application/json"}});}};
+  assert.equal((await worker.fetch(req("/api/collect","POST",null,"wrong"),e)).status,401);
+  assert.equal(calls,0);
+  const response=await worker.fetch(req("/api/collect","POST"),e);
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).matched,3);
+  assert.equal(calls,1);
+});
