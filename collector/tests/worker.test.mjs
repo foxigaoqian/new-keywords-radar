@@ -92,3 +92,19 @@ test("manual collection endpoint is private service-binding only and rate limite
   db.prepare("INSERT INTO collector_runs").bind("manual-test",new Date().toISOString(),1).run();
   // Stub lacks SELECT latest row, so the endpoint can be tested with a preexisting query failure fixture later.
 });
+
+test("rejects self-promotional job CV and unrelated distant mentions",()=>{
+  const job="Location: London Remote: Yes Technologies: Shopify, photo software, Cloudflare "+
+            "Email: candidate@example.com Resume/CV: https://my.site/resume.pdf. I need a job and can edit photos.";
+  assert.equal(extract({hits:[hit(12345,job)]},topic,now).length,0);
+  const unrelated="I need a better process for shipping products. ".repeat(12)+
+    "My notes contain the terms Shopify, image, compress, and file, but this is not about compression.";
+  assert.equal(extract({hits:[hit(12346,unrelated)]},topic,now).length,0);
+});
+test("redacts email addresses from stored quote excerpts",()=>{
+  const text="I need to compress all my photos for upload and cannot do this manually. Email me at private@example.com";
+  const data=extract({hits:[hit(12347,text)]},topic,now);
+  assert.equal(data.length,1);
+  assert.equal(data[0].note.includes("private@example.com"),false);
+  assert.equal(data[0].note.includes("[email redacted]"),true);
+});
