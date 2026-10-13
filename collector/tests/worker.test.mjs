@@ -5,12 +5,14 @@ const topic={keyword:"bulk image compressor",query:"image",require:[["image","ph
 const now=Date.parse("2026-10-13T10:00:00Z");
 const hit=(id,comment_text,created_at="2026-10-12T07:00:00.000Z")=>({objectID:String(id),comment_text,created_at});
 class FakeDB {
-  constructor(){this.records=new Map();this.runs=new Map();}
+  constructor(){this.records=new Map();this.runs=new Map();this.provider=null;}
   prepare(sql){let args=[];const self=this;const stmt={
     bind(...items){args=items;return this},
-    async first(){if(sql.startsWith("SELECT record_json"))return self.records.get(args[0])||null;return null},
+    async first(){if(sql.startsWith("SELECT record_json"))return self.records.get(args[0])||null;if(sql.startsWith("SELECT blocked_until"))return self.provider;return null},
     async run(){
       if(sql.startsWith("INSERT INTO collector_runs"))self.runs.set(args[0],{id:args[0],status:"running"});
+      if(sql.startsWith("INSERT INTO collector_provider_state"))self.provider={blocked_until:args[2],last_attempted_at:args[1]};
+      if(sql.startsWith("UPDATE collector_provider_state"))self.provider={...self.provider,blocked_until:args[0],last_error:args[1]};
       if(sql.startsWith("UPDATE collector_runs"))self.runs.set(args[5],{status:args[1],matched:args[2],errors:args[3],sources:JSON.parse(args[4])});
       if(sql.startsWith("INSERT INTO opportunities")){
         const [id,keyword,normalized_key,stage,rubric_score,origin_count,evidence_count,intent_signature,record_json]=args;
@@ -129,4 +131,16 @@ test("multi-source daily collector merges real Stack Exchange questions and reco
   assert.equal(stored.evidence[0].source,"stackexchange-api-v2.3");
   assert.equal(stored.monthly_searches,null);
   assert.deepEqual([...db.runs.values()][0].sources,{hacker_news:0,stackexchange:1});
+});
+
+test("provider cooldown prevents repeat requests and preserves HN independently",async()=>{
+  const db=new FakeDB(),site={keyword:"bulk image compressor",site:"superuser",query:"batch image compress",require:[["image"],["compress"]]};
+  let calls=0;
+  const request=async()=>{calls++;return {ok:false,status:429,text:async()=>"quota exhausted"}};
+  const first=await collect({DB:db},{now,topics:[],stackTopics:[site],stackFetcher:request});
+  assert.equal(first.sources.stackexchange_status,"limited");
+  assert.equal(calls,1);
+  const next=await collect({DB:db},{now:now+60*60*1000,topics:[],stackTopics:[site],stackFetcher:request});
+  assert.equal(next.sources.stackexchange_status,"cooldown");
+  assert.equal(calls,1);
 });
