@@ -71,7 +71,7 @@ async function summary(env){
   const stats=await env.DB.prepare("SELECT review_status,stage,count(*) AS n FROM opportunities GROUP BY review_status,stage").all();
   const dup=await env.DB.prepare("SELECT intent_signature,count(*) AS n FROM opportunities WHERE length(intent_signature)>0"+
     " GROUP BY intent_signature HAVING count(*)>1 ORDER BY n DESC LIMIT 30").all();
-  const scans=await env.DB.prepare("SELECT started_at,ended_at,status,total_topics,total_matches,errors_json FROM collector_runs ORDER BY started_at DESC LIMIT 5").all();
+  const scans=await env.DB.prepare("SELECT started_at,ended_at,status,total_topics,total_matches,errors_json,source_counts_json FROM collector_runs ORDER BY started_at DESC LIMIT 5").all();
   return send({stages:stats.results||[],possible_overlaps:dup.results||[],recent_runs:scans.results||[]});
 }
 async function decision(env,id,data){
