@@ -82,7 +82,7 @@ def snapshot(response):
         raise ValueError("DataForSEO SERP has no result")
     result = results[0]
     items = result.get("items") or []
-    organic = [r for r in items if r.get("type") == "organic" and isinstance(r.get("rank_group"), int)
+    organic = [r for r in items if isinstance(r, dict) and r.get("type") == "organic" and isinstance(r.get("rank_group"), int)
                and 1 <= r["rank_group"] <= 10]
     organic.sort(key=lambda r: r["rank_group"])
     return {"reviewed_at": datetime.now(timezone.utc).date().isoformat(),
@@ -91,7 +91,7 @@ def snapshot(response):
             "organic": [{"rank_group": r["rank_group"], "rank_absolute": r.get("rank_absolute"),
                          "url": r.get("url"), "domain": r.get("domain"), "title": r.get("title")}
                         for r in organic],
-            "features": sorted({str(r.get("type")) for r in items if r.get("type") not in ("organic", None)}),
+            "features": sorted({str(r.get("type")) for r in items if isinstance(r, dict) and r.get("type") not in ("organic", None)}),
             "interpretation": "Unclassified SERP snapshot. Manually inspect intent and competing tools."}
 
 
