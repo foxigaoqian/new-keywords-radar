@@ -18,8 +18,7 @@ function htmlText(v){return compact(String(v??"").replace(/<[^>]+>/g," ").replac
 function redacted(t){return t.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,"[email redacted]").replace(/\+?\d[\d\s().-]{9,}\d/g,"[phone redacted]")}
 export function searchURL(topic,now=Date.now()){
   if(!VALID_SITES.has(topic.site))throw Error("Unsupported Stack Exchange site");
-  return BASE+"?"+new URLSearchParams({site:topic.site,q:topic.query,sort:"relevance",order:"desc",pagesize:"25",
-    filter:"withbody",fromdate:String(Math.floor((now-DAYS*86400000)/1000))});
+  return BASE+"?"+new URLSearchParams({site:topic.site,q:topic.query,sort:"relevance",order:"desc",pagesize:"15",filter:"withbody"});
 }
 function questionMatches(title,body,topic){
   // Questions explicitly ask for help; require task/object near each other.
@@ -57,14 +56,21 @@ export async function collectStack(topics,now,fetcher,save){
     if(backoff)break;
     try{
       const resp=await fetcher(searchURL(topic,now),{headers:{"user-agent":"seo-opportunity-radar/5.0 public Q&A discovery"}});
-      if(!resp.ok)throw Error("Stack Exchange HTTP "+resp.status);
+      if(!resp.ok){
+        let hint="";
+        try{hint=String(await resp.text()).slice(0,120)}catch{}
+        const err=Error("Stack Exchange HTTP "+resp.status+" "+hint.replace(/\s+/g," "));
+        err.halt=true;
+        err.backoff=resp.status===429?24*3600:12*3600;
+        throw err;
+      }
       const data=await resp.json();
-      if(data.error_id)throw Error("Stack Exchange API "+data.error_name);
+      if(data.error_id){const err=Error("Stack Exchange API "+data.error_name);err.halt=true;err.backoff=12*3600;throw err;}
       backoff=Number.isFinite(data.backoff)&&data.backoff>0?data.backoff:0;
       const questions=extractQuestions(data,topic,now);
       const imported=questions.length?await save(topic,questions):0;
       results.push({topic:topic.keyword,matched:questions.length,imported});
-    }catch(e){errors.push({topic:topic.keyword,reason:String(e?.message||e).slice(0,150)});}
+    }catch(e){errors.push({topic:topic.keyword,reason:String(e?.message||e).slice(0,150)});if(e?.halt){backoff=e.backoff||12*3600;break;}}
   }
   return {results,errors,backoff_seconds:backoff,matched:results.reduce((n,r)=>n+r.matched,0)};
 }
