@@ -226,3 +226,9 @@ The tests cover the logic (name extraction, scoring, the store, the reports) and
 ## License
 
 MIT. Extracted from the radar that runs daily behind [agentskillshub.top](https://agentskillshub.top).
+
+## Our SEO opportunity extension
+
+This fork adds a separate evidence-aware research queue for personas, scenes, tasks and keyword hypotheses, with optional import of the daily radar JSON. It deliberately does not treat speculative keywords or radar signals as validated search demand. See [Chinese implementation roadmap](docs/SEO-OPPORTUNITY-ROADMAP.zh-CN.md).
+
+Run: `python -m radar opportunities --input opportunities.example.json --out opportunities.md`.
