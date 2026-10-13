@@ -267,3 +267,10 @@ SEO 研究看板目前是 Markdown + JSON，**Cloudflare Web UI、Reddit 正式�
 新增 `python -m radar ideas` 命令：通过 DataForSEO Google Keyword Suggestions 正式接口（US/en）查询实际关键词及搜索量；默认不调用，必须显式提供 `--paid`，设定自己的 DataForSEO 登录信息。
 
 [详细用法及注意事项](docs/V5-DATA-SOURCES.zh-CN.md)。Reddit 商业自动抓取未启用（需许可）。
+
+
+## V6 — Google SERP 人工竞争审核与站点选择
+
+Cloudflare 私有工作台新增：按真实 Google 前十 URL 逐条分类（同用途工具、大型平台、文章/问答、不相关）；保存用户检索意图、证据质量、开发工期、变现方式以及扩充现有网站/新建站的选择。人工审核保存在独立 D1 表，不被每日论坛采集或重新导入覆盖。还可上传手动调用 DataForSEO 后生成的 research.seo.json 或 research.ideas.json，为已有候选词补充真实数据来源。默认不自动扣费。
+
+详细操作：[V6 SEO 验证与开发判断](docs/V6-SEO-VALIDATION.zh-CN.md)。
