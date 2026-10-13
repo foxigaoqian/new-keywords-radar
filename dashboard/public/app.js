@@ -37,7 +37,8 @@ async function load(){
     const last=(summary.recent_runs||[])[0];
     const when=last?.started_at?new Date(last.started_at).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"";
     let counts={};try{counts=JSON.parse(last?.source_counts_json||"{}")}catch{}
-    const breakdown=("HN "+(counts.hacker_news??"—")+" / Stack Exchange "+(counts.stackexchange??"—"));
+    const stackState=counts.stackexchange_status==="cooldown"?"冷却中":counts.stackexchange_status==="limited"?"接口限流":counts.stackexchange_status==="completed"?"已执行":counts.stackexchange_status==="failed"?"执行失败":"待验证";
+    const breakdown=("HN "+(counts.hacker_news??"—")+" / Stack Exchange "+(counts.stackexchange??"—")+"（"+stackState+"）");
     $("last-scan").textContent=last?("上次采集："+when+" · "+last.status+" · "+last.total_matches+" 条证据 / "+last.total_topics+" 个主题 · "+breakdown):"公开需求采集：等待首次运行";
     const stats=summary.stages||[];
     $("stat-total").textContent=fmtNum(totalBy(stats,()=>true));
