@@ -126,17 +126,38 @@ export async function collect(env,options={}){
       outputs.push({topic:topic.keyword,matched:n});
     }catch(error){failures.push({topic:topic.keyword,reason:String(error?.message||error).slice(0,150)});}
   }
-  const stack=await collectStack(stackTopics,now,options.stackFetcher||fetcher,
-    (topic,questions)=>ingest(env,topic,questions,now));
+  let stack={results:[],errors:[],matched:0,backoff_seconds:0};
+  let stackStatus=stackTopics.length?"not-attempted":"disabled";
+  if(stackTopics.length){
+    try{
+      const previous=await env.DB.prepare("SELECT blocked_until FROM collector_provider_state WHERE provider=?").bind("stackexchange").first();
+      if(previous && Date.parse(previous.blocked_until)>now)stackStatus="cooldown";
+      else{
+        const blocked=new Date(now+22*3600*1000).toISOString();
+        await env.DB.prepare("INSERT INTO collector_provider_state (provider,last_attempted_at,blocked_until) VALUES (?,?,?) "+
+           "ON CONFLICT(provider) DO UPDATE SET last_attempted_at=excluded.last_attempted_at,blocked_until=excluded.blocked_until")
+          .bind("stackexchange",new Date(now).toISOString(),blocked).run();
+        stack=await collectStack(stackTopics,now,options.stackFetcher||fetcher,
+          (topic,questions)=>ingest(env,topic,questions,now));
+        const wait=Math.max(22*3600,stack.backoff_seconds||0);
+        await env.DB.prepare("UPDATE collector_provider_state SET blocked_until=?,last_error=? WHERE provider=?")
+          .bind(new Date(now+wait*1000).toISOString(),stack.errors[0]?.reason||"","stackexchange").run();
+        stackStatus=stack.backoff_seconds?"limited":stack.errors.length?"partial":"completed";
+      }
+    }catch(error){
+      stackStatus="failed";
+      failures.push({source:"stackexchange",reason:String(error?.message||error).slice(0,150)});
+    }
+  }
   for(const err of stack.errors)failures.push({...err,source:"stackexchange"});
   const matched=outputs.reduce((n,v)=>n+v.matched,0)+stack.matched;
   const count=topics.length+stackTopics.length;
   const successCount=outputs.length+stack.results.length;
   const status=successCount===0?"failed":failures.length?"partial":"completed";
   await env.DB.prepare("UPDATE collector_runs SET ended_at=?,status=?,total_matches=?,errors_json=?,source_counts_json=? WHERE id=?")
-    .bind(new Date().toISOString(),status,matched,JSON.stringify(failures),JSON.stringify({hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched}),runId).run();
+    .bind(new Date().toISOString(),status,matched,JSON.stringify(failures),JSON.stringify({hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched,stackexchange_status:stackStatus}),runId).run();
   return {run_id:runId,status,total_topics:count,matched,failures,
-    sources:{hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched},
+    sources:{hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched,stackexchange_status:stackStatus},
     rate_limit_backoff_seconds:stack.backoff_seconds,topics:[...outputs,...stack.results]};
 }
 export default {
