@@ -120,6 +120,7 @@ function showDetail(r){
   const flags=detailSection(main,"研究备注");
   append(flags,node("p","detail-muted","该词目前："+stageLabel(r.stage)+"。可能相同意图签名："+(r.intent_signature?.replaceAll("|"," · ")||"无")+
     "。自动聚类不能代替 Google SERP 人工判断。"));
+  renderAssessment(main,r);
   const form=detailSection(main,"我的处理决定");
   const statusBox=node("div","field");append(statusBox,node("label","","处理状态"));
   const sel=node("select");for(const option of ["inbox","watch","build","reject"]){const opt=node("option","",statusLabel(option));opt.value=option;sel.append(opt)}
@@ -150,10 +151,123 @@ async function exportData(){
     const uri=URL.createObjectURL(blob),a=document.createElement("a");a.href=uri;a.download="seo-opportunities-"+new Date().toISOString().slice(0,10)+".json";a.click();setTimeout(()=>URL.revokeObjectURL(uri),1000);alertMsg("已下载研究决策备份")}
   catch(err){alertMsg(err.message,"error")}
 }
+
+function makeField(title,element){
+ const wrap=node("div","field");const label=node("label","",title);append(wrap,label,element);return wrap;
+}
+function makeSelect(options,current){
+ const select=node("select");
+ for(const [value,label] of options){
+  const o=node("option","",label);o.value=value;select.append(o);
+ }
+ select.value=current||options[0][0];
+ return select;
+}
+async function renderAssessment(main,r){
+ const container=detailSection(main,"V6 · SERP 竞争分析与开发建议");
+ const content=node("div","assessment-content");append(container,content);
+ append(content,node("p","detail-muted","载入人工审核记录…"));
+ let review;
+ try{review=await api("/api/items/"+r.id+"/assessment")}
+ catch(err){content.textContent="无法读取评估记录："+err.message;return}
+ if(s.picked!==r)return;
+ clear(content);
+ append(content,node("p","detail-muted","Google 前十结果需要真实来源。没有付费 SERP 数据时，可先在 Google 手动检查，并把真实结果 URL 每行粘贴一个；不填写不会生成排名结果。"));
+ append(content,link("https://www.google.com/search?"+new URLSearchParams({q:r.keyword}).toString(),"手动打开 Google 搜索 ↗"));
+ const suggested=node("div","site-suggestions");
+ append(content,node("h3","","可能适合扩充的现有网站（仅主题提示）"));
+ if(review.site_suggestions?.length){
+  for(const site of review.site_suggestions){
+   const line=node("div","site-suggestion");
+   append(line,node("span","",site.domain+" · "+site.label+" · "+site.matched_terms.join("/")));
+   const b=node("button","ghost tiny","选择");b.type="button";
+   b.addEventListener("click",()=>{siteInput.value=site.domain;placement.value="extend-site"});
+   append(line,b);append(suggested,line);
+  }
+ }else append(suggested,node("p","detail-muted","无明显匹配，需人工决定新站还是其他已有站。"));
+ append(content,suggested);
+ const base=review.snapshot?.organic?.length?review.snapshot.organic:(r.serp_snapshot?.organic||[]);
+ const area=node("textarea");area.value=base.map(x=>x.url).join("\n");area.rows=7;
+ area.placeholder="粘贴真实 Google 前十结果的 URL，每行一个，最多 10 条";
+ append(content,makeField("SERP 前十结果 URL（按顺序；未检索时请留空）",area));
+ const resultBox=node("div","serp-editor");
+ const labelState=new Map((review.labels||[]).map(x=>[x.url,x.type]));
+ function rebuild(){
+  clear(resultBox);
+  const urls=area.value.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,10);
+  const valid=[];
+  for(const [i,u] of urls.entries()){
+   let parsed;
+   try{parsed=new URL(u);if(!["http:","https:"].includes(parsed.protocol))throw Error("protocol")}catch{
+     append(resultBox,node("p","detail-muted","第 "+(i+1)+" 条不是有效的 http(s) URL"));continue}
+   const entry={rank_group:i+1,url:parsed.href,title:(base.find(x=>x.url===parsed.href)?.title)||""};
+   valid.push(entry);
+   const line=node("div","serp-review-row");
+   const info=node("div");append(info,node("b","",String(i+1)),link(parsed.href,entry.title||parsed.hostname));
+   const select=makeSelect([["unknown","未判断"],["direct-tool","同用途工具"],["major-platform","大型平台"],["guide-answer","文章/问答"],["irrelevant","不符合搜索意图"]],labelState.get(parsed.href)||"unknown");
+   select.dataset.rank=String(i+1);
+   select.dataset.url=parsed.href;
+   select.addEventListener("change",()=>labelState.set(parsed.href,select.value));
+   append(line,info,select);append(resultBox,line);
+  }
+  resultBox._organic=valid;
+ }
+ const rebuildButton=node("button","ghost tiny","更新前十结果分类");
+ rebuildButton.type="button";rebuildButton.addEventListener("click",rebuild);
+ append(content,rebuildButton,resultBox);rebuild();
+ const intent=makeSelect([["unknown","尚未判断"],["aligned","结果符合搜索意图"],["mixed","部分符合，部分偏离"],["mismatch","结果主要不符合目标任务"]],review.intent_fit);
+ const quality=makeSelect([["unrated","尚未评分"],["strong","证据充分（人工判断）"],["mixed","证据一般"],["weak","证据弱"]],review.evidence_quality);
+ const placement=makeSelect([["research","继续研究"],["extend-site","扩充现有网站"],["new-tool","建立独立工具"],["reject","暂时放弃"]],review.placement);
+ const siteInput=node("input");siteInput.value=review.target_site||r.target_site||"";siteInput.maxLength=200;
+ const days=node("input");days.inputType="number";days.type="number";days.min="0";days.max="180";days.step="0.5";days.value=review.build_days??"";
+ const monetization=node("input");monetization.value=review.monetization||"";monetization.maxLength=100;monetization.placeholder="广告 / 一次性收费 / 订阅 / 暂未确定";
+ const note=node("textarea");note.value=review.review_notes||"";note.maxLength=3000;note.placeholder="SERP 前十竞争程度、功能空缺、工具 MVP 内容和变现判断…";
+ append(content,makeField("SERP 与用户检索意图的匹配",intent),makeField("真实用户问题证据质量",quality),
+  makeField("我建议的产品路线",placement),makeField("目标现有站点（若有）",siteInput),
+  makeField("MVP 预计开发天数",days),makeField("商业化路径",monetization),makeField("人工审核理由",note));
+ const counts=node("p","detail-muted","已分类 "+review.classification_count+" 条 SERP 结果；不足 5 条时不视为完成竞争审核。");
+ append(content,counts);
+ const save=node("button","primary","保存 V6 竞争与开发评估");
+ save.type="button";
+ save.addEventListener("click",async()=>{
+   save.disabled=true;
+   try{
+     rebuild();
+     const organic=resultBox._organic||[];
+     if(organic.length!==area.value.split("\n").filter(x=>x.trim()).length)throw Error("存在无效或超过 10 条的 SERP URL");
+     const labels=[...resultBox.querySelectorAll("select")].map(x=>({rank:Number(x.dataset.rank),url:x.dataset.url,type:x.value}));
+     const payload={intent_fit:intent.value,evidence_quality:quality.value,placement:placement.value,
+       target_site:siteInput.value,build_days:days.value,monetization:monetization.value,review_notes:note.value,
+       snapshot:{organic,provider:review.snapshot?.provider||r.serp_snapshot?.provider||"human-entered"},labels};
+     const saved=await api("/api/items/"+r.id+"/assessment",{method:"POST",body:payload});
+     counts.textContent="已保存；有效审核 "+saved.classification_count+" 条；完整度："+(saved.serp_review_complete?"符合最少 5 条":"仍需补齐");
+     alertMsg("已保存竞争审核和产品路线；不会自动发布页面");
+   }catch(err){alertMsg(err.message,"error")}finally{save.disabled=false}
+ });
+ append(content,save);
+}
+
+
+async function importSeoFile(event){
+ const file=event.target.files?.[0];event.target.value="";if(!file)return;
+ if(file.size>10000000){alertMsg("SEO 文件过大","error");return}
+ try{
+  const payload=JSON.parse(await file.text());
+  if(!Array.isArray(payload.reviews)||!payload.reviews.length)throw Error("请选择 DataForSEO verify/ideas 生成的 reviews[] JSON");
+  let total=0,missing=0;
+  for(let i=0;i<payload.reviews.length;i+=30){
+   const res=await api("/api/import-seo",{method:"POST",body:{reviews:payload.reviews.slice(i,i+30)}});
+   total+=res.updated;missing+=res.unmatched.length;
+  }
+  alertMsg("已更新 "+total+" 个现有词；"+missing+" 个未入库词需先导入机会候选");
+  await load();
+ }catch(e){alertMsg("SEO 数据导入失败："+e.message,"error")}
+}
+
 $("login-form").addEventListener("submit",login);$("logout").addEventListener("click",lock);
 $("close-drawer").addEventListener("click",closeDetail);$("scrim").addEventListener("click",closeDetail);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("drawer").hidden)closeDetail()});
-$("file-input").addEventListener("change",importFile);$("export-btn").addEventListener("click",exportData);
+$("file-input").addEventListener("change",importFile);$("seo-file-input").addEventListener("change",importSeoFile);$("export-btn").addEventListener("click",exportData);
 $("scan-now").addEventListener("click",async()=>{
   const button=$("scan-now");
   button.disabled=true;button.textContent="正在采集公开评论…";

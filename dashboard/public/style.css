@@ -2,3 +2,17 @@
 .capture-status{border:1px solid #23514a;background:#10302cba;border-radius:13px;padding:13px 18px;color:#a8ddcf;font-size:12px;line-height:1.6;margin-bottom:17px;overflow-wrap:anywhere}
 .capture-dot{color:#78e4cc;margin-right:6px}.page-actions{flex-wrap:wrap}.page-actions button,.page-actions label{white-space:nowrap}
 @media(max-width:650px){.page-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.page-actions>*{min-width:0}.page-actions #scan-now{grid-column:1/-1;grid-row:1}}
+
+/* V6 SERP labels & product feasibility review */
+.site-suggestions{display:grid;gap:8px;margin:10px 0 21px}
+.site-suggestion{border:1px solid #274455;border-radius:11px;background:#122b3a;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.site-suggestion>span{font-size:12px;color:#d2e4e9;line-height:1.6;overflow-wrap:anywhere}
+.assessment-content>h3{font-size:14px;margin:22px 0 10px}
+.assessment-content>a{display:inline-block;font-size:12px;margin:0 0 13px}
+.serp-editor{display:grid;gap:8px;margin:13px 0 22px}
+.serp-review-row{display:grid;grid-template-columns:minmax(0,1fr) 155px;gap:12px;align-items:center;border:1px solid #2b4859;border-radius:12px;background:#122635;padding:10px 11px}
+.serp-review-row>div{min-width:0;display:flex;gap:8px;align-items:flex-start}
+.serp-review-row>div>b{color:var(--teal);width:17px;flex:none}
+.serp-review-row a{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.serp-review-row select{width:100%;min-width:0;font-size:12px;padding:10px 9px}
+@media(max-width:650px){.serp-review-row{grid-template-columns:1fr;gap:8px}.serp-review-row select{width:100%}}
