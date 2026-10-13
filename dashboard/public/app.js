@@ -35,7 +35,7 @@ async function load(){
   try{const [summary,result]=await Promise.all([api("/api/summary"),api("/api/items?"+query)]);
     s.summary=summary;s.items=result.items||[];
     const last=(summary.recent_runs||[])[0];
-    const when=last?.started_at?new Date(last.started_at+"Z").toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"";
+    const when=last?.started_at?new Date(last.started_at).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"";
     $("last-scan").textContent=last?("上次采集："+when+" · "+last.status+" · "+last.total_matches+" 条评论 / "+last.total_topics+" 个主题"):"公开需求采集：等待首次运行";
     const stats=summary.stages||[];
     $("stat-total").textContent=fmtNum(totalBy(stats,()=>true));
