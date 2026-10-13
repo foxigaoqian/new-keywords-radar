@@ -82,6 +82,32 @@ def number(value):
         return float(value)
     return None
 
+def merge_research(data, sources):
+    """Merge external research by keyword. Explicit human-entered data takes priority."""
+    result = dict(data)
+    reviews = {}
+    for item in items(data.get("reviews")):
+        if isinstance(item, dict) and key(item.get("keyword")):
+            reviews[key(item["keyword"])] = dict(item)
+    for source in sources:
+        for extra in items(source.get("reviews")):
+            if not isinstance(extra, dict) or not key(extra.get("keyword")):
+                continue
+            k = key(extra["keyword"])
+            original = reviews.setdefault(k, {"keyword": extra["keyword"]})
+            links = {key(e.get("url")) for e in items(original.get("evidence")) if isinstance(e, dict)}
+            for entry in items(extra.get("evidence")):
+                if isinstance(entry, dict) and key(entry.get("url")) and key(entry["url"]) not in links:
+                    original.setdefault("evidence", []).append(entry)
+                    links.add(key(entry["url"]))
+            for field, value in extra.items():
+                if field in ("keyword", "evidence"):
+                    continue
+                if (original.get(field) is None or original.get(field) == "" or original.get(field) == {}) and value is not None:
+                    original[field] = value
+    result["reviews"] = list(reviews.values())
+    return result
+
 def evaluate(row, review):
     evidence, hosts = [], set()
     for item in items(review.get("evidence")):
@@ -93,7 +119,9 @@ def evaluate(row, review):
             continue
         hosts.add(parsed.hostname.lower().removeprefix("www."))
         evidence.append({"type": clean(item.get("type")) or "other", "url": url,
-                         "note": clean(item.get("note")), "verified": False})
+                         "note": clean(item.get("note")), "published_at": clean(item.get("published_at")),
+                         "collected_at": clean(item.get("collected_at")), "source": clean(item.get("source")),
+                         "verified": False})
     vol = number(review.get("monthly_searches"))
     source = clean(review.get("monthly_searches_source"))
     has_volume = vol is not None and bool(source)
@@ -125,6 +153,9 @@ def evaluate(row, review):
             "monthly_searches_source": source if has_volume else None,
             "serp": {"reviewed_at": clean(serp.get("reviewed_at")), "exact_tool_results": int(exact),
                      "major_site_results": int(major)} if has_serp else None,
+            "serp_snapshot": review.get("serp_snapshot") if isinstance(review.get("serp_snapshot"), dict) else None,
+            "ads_cpc_usd": number(review.get("ads_cpc_usd")),
+            "ads_competition_index": number(review.get("ads_competition_index")),
             "estimated_build_days": build, "monetization": money, "existing_site": site,
             "next_action": {"hypothesis": "Collect real demand evidence",
                             "needs-evidence": "Complete demand, volume and SERP checks",
@@ -177,7 +208,8 @@ def command(args):
     try:
         data = json.loads(Path(args.input).read_text(encoding="utf-8"))
         radar = json.loads(Path(args.radar_json).read_text(encoding="utf-8")) if args.radar_json else {}
-        result = build(data, radar)
+        sources = [json.loads(Path(p).read_text(encoding="utf-8")) for p in (getattr(args, "research_json", None) or [])]
+        result = build(merge_research(data, sources), radar)
     except (OSError, ValueError, TypeError) as exc:
         raise SystemExit(f"Opportunity queue failed: {exc}") from exc
     text = markdown(result)
@@ -193,6 +225,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--input", default="opportunities.example.json")
     p.add_argument("--radar-json", default=None)
+    p.add_argument("--research-json", action="append", help="HN research or SEO verification JSON; repeatable")
     p.add_argument("--out", default="opportunities.md")
     return command(p.parse_args(argv))
 
