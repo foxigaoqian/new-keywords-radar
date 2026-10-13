@@ -5,7 +5,7 @@ import json
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
-from . import intent
+from . import intent, screening
 
 STAGES = {"manual-review": 0, "needs-evidence": 1, "hypothesis": 2}
 
@@ -192,6 +192,8 @@ def build(data, radar=None):
                  "note": "Original comment supports the task, not necessarily the keyword wording."}
                 for u in row["evidence_links"]]
         rows.append(evaluate(row, review))
+    for r in rows:
+        r["screening"] = screening.analyze(r)
     rows.sort(key=lambda r: (STAGES[r["stage"]], -r["rubric_score"], key(r["keyword"])))
     return {"generated_at": date.today().isoformat(), "count": len(rows),
             "suggested_intent_groups": intent.suggest(rows),
