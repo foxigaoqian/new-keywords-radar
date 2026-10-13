@@ -1,5 +1,6 @@
 /** Scheduled collector: uses public HN comments, never claims Google search demand. */
 import {TOPICS,NEED_WORDS} from "./topics.js";
+import {SE_TOPICS,collectStack} from "./stackexchange.js";
 
 const API="https://hn.algolia.com/api/v1/search_by_date";
 const DAYS=180,RESULTS_PER_QUERY=80,MAX_EVIDENCE=6,TIMEOUT=10000;
@@ -113,9 +114,18 @@ export async function ingest(env,topic,evidence,now=Date.now()){
 export async function collect(env,options={}){
   if(!env?.DB)throw new Error("D1 DB not configured");
   const now=options.now??Date.now(),fetcher=options.fetcher||fetch,topics=options.topics||TOPICS;
+  // Defense in depth: even if Cloudflare unexpectedly fires an old Cron schedule
+  // repeatedly, the scheduled task must not repeat external requests within 20h.
+  if(options.skipIfRecent){
+    const recent=await env.DB.prepare("SELECT started_at FROM collector_runs WHERE status IN ('completed','partial') ORDER BY started_at DESC LIMIT 1").first();
+    if(recent && Number.isFinite(Date.parse(recent.started_at)) && now-Date.parse(recent.started_at)<20*3600*1000)
+      return {status:"skipped",reason:"recent successful or partial scheduled scan",matched:0,total_topics:0,
+              failures:[],sources:{hacker_news:0,stackexchange:0,stackexchange_status:"skipped"},topics:[]};
+  }
+  const stackTopics=options.stackTopics??(options.topics?[]:SE_TOPICS);
   const runId=crypto.randomUUID();
   await env.DB.prepare("INSERT INTO collector_runs (id,started_at,status,total_topics,total_matches) VALUES (?,?,'running',?,0)")
-    .bind(runId,new Date(now).toISOString(),topics.length).run();
+    .bind(runId,new Date(now).toISOString(),topics.length+stackTopics.length).run();
   const failures=[],outputs=[];
   for(const topic of topics.slice(0,16)){
     try{
@@ -124,15 +134,43 @@ export async function collect(env,options={}){
       outputs.push({topic:topic.keyword,matched:n});
     }catch(error){failures.push({topic:topic.keyword,reason:String(error?.message||error).slice(0,150)});}
   }
-  const matched=outputs.reduce((n,v)=>n+v.matched,0);
-  const status=failures.length===topics.length?"failed":failures.length?"partial":"completed";
-  await env.DB.prepare("UPDATE collector_runs SET ended_at=?,status=?,total_matches=?,errors_json=? WHERE id=?")
-    .bind(new Date().toISOString(),status,matched,JSON.stringify(failures),runId).run();
-  return {run_id:runId,status,total_topics:topics.length,matched,failures,topics:outputs};
+  let stack={results:[],errors:[],matched:0,backoff_seconds:0};
+  let stackStatus=stackTopics.length?"not-attempted":"disabled";
+  if(stackTopics.length){
+    try{
+      const previous=await env.DB.prepare("SELECT blocked_until FROM collector_provider_state WHERE provider=?").bind("stackexchange").first();
+      if(previous && Date.parse(previous.blocked_until)>now)stackStatus="cooldown";
+      else{
+        const blocked=new Date(now+22*3600*1000).toISOString();
+        await env.DB.prepare("INSERT INTO collector_provider_state (provider,last_attempted_at,blocked_until) VALUES (?,?,?) "+
+           "ON CONFLICT(provider) DO UPDATE SET last_attempted_at=excluded.last_attempted_at,blocked_until=excluded.blocked_until")
+          .bind("stackexchange",new Date(now).toISOString(),blocked).run();
+        stack=await collectStack(stackTopics,now,options.stackFetcher||fetcher,
+          (topic,questions)=>ingest(env,topic,questions,now));
+        const wait=Math.max(22*3600,stack.backoff_seconds||0);
+        await env.DB.prepare("UPDATE collector_provider_state SET blocked_until=?,last_error=? WHERE provider=?")
+          .bind(new Date(now+wait*1000).toISOString(),stack.errors[0]?.reason||"","stackexchange").run();
+        stackStatus=stack.backoff_seconds?"limited":stack.errors.length?"partial":"completed";
+      }
+    }catch(error){
+      stackStatus="failed";
+      failures.push({source:"stackexchange",reason:String(error?.message||error).slice(0,150)});
+    }
+  }
+  for(const err of stack.errors)failures.push({...err,source:"stackexchange"});
+  const matched=outputs.reduce((n,v)=>n+v.matched,0)+stack.matched;
+  const count=topics.length+stackTopics.length;
+  const successCount=outputs.length+stack.results.length;
+  const status=successCount===0?"failed":failures.length?"partial":"completed";
+  await env.DB.prepare("UPDATE collector_runs SET ended_at=?,status=?,total_matches=?,errors_json=?,source_counts_json=? WHERE id=?")
+    .bind(new Date().toISOString(),status,matched,JSON.stringify(failures),JSON.stringify({hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched,stackexchange_status:stackStatus}),runId).run();
+  return {run_id:runId,status,total_topics:count,matched,failures,
+    sources:{hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched,stackexchange_status:stackStatus},
+    rate_limit_backoff_seconds:stack.backoff_seconds,topics:[...outputs,...stack.results]};
 }
 export default {
-  async scheduled(controller,env,ctx){ctx.waitUntil(collect(env).then(result=>{
-    console.log("HN collection summary",JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,failures:result.failures.length}));
+  async scheduled(controller,env,ctx){ctx.waitUntil(collect(env,{skipIfRecent:true}).then(result=>{
+    console.log("Public problem collection summary",JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,failures:result.failures.length}));
   }).catch(error=>{console.error("HN collector error",String(error?.message||error).slice(0,180));}));},
   async fetch(request,env){
     const pathname=new URL(request.url).pathname;
@@ -145,6 +183,6 @@ export default {
         {status:429,headers:{"content-type":"application/json","cache-control":"no-store"}});
     const result=await collect(env);
     return new Response(JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,
-      failed_topics:result.failures.length}),{headers:{"content-type":"application/json","cache-control":"no-store"}});
+      failed_topics:result.failures.length,sources:result.sources,backoff_seconds:result.rate_limit_backoff_seconds}),{headers:{"content-type":"application/json","cache-control":"no-store"}});
   }
 };

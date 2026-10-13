@@ -28,7 +28,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import breakout, config, gsc, journeys, new_sites, notify, opportunities, report, research, review, seo_verify, sitemaps, sources, store, usecases
+from . import breakout, config, gsc, journeys, keyword_ideas, new_sites, notify, opportunities, report, research, review, seo_verify, sitemaps, sources, store, usecases
 from .i18n import t
 
 SKIPPABLE = {"x", "hf", "breakout", "sitemaps", "newsites", "gsc", "review", "judge", "usecases"}
@@ -105,6 +105,8 @@ def main(argv: list[str] | None = None) -> int:
         return journeys.main(actual[1:])
     if actual and actual[0] == "verify":
         return seo_verify.main(actual[1:])
+    if actual and actual[0] == "ideas":
+        return keyword_ideas.main(actual[1:])
     p = argparse.ArgumentParser(prog="python -m radar", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["daily", "sources", "opportunities"])
     p.add_argument("--config", default="config.json")

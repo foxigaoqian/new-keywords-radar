@@ -258,3 +258,12 @@ SEO 研究看板目前是 Markdown + JSON，**Cloudflare Web UI、Reddit 正式�
 地址：https://seo-opportunity-workbench.foxigaoqian-soocly.workers.dev/
 
 [采集逻辑、人工验证与故障排查](collector/README.zh-CN.md)
+
+
+## V5 — 多来源真实痛点 + 官方关键词建议
+
+已增加 Stack Exchange 官方问答 API，与 Hacker News 共同采集真实用户问题并保留原始链接。Cloudflare 每日 Cron 不依赖 AI/API 收费；工作台按 HN 与 Stack Exchange 分别显示证据条数。
+
+新增 `python -m radar ideas` 命令：通过 DataForSEO Google Keyword Suggestions 正式接口（US/en）查询实际关键词及搜索量；默认不调用，必须显式提供 `--paid`，设定自己的 DataForSEO 登录信息。
+
+[详细用法及注意事项](docs/V5-DATA-SOURCES.zh-CN.md)。Reddit 商业自动抓取未启用（需许可）。

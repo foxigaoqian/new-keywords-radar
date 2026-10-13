@@ -36,7 +36,10 @@ async function load(){
     s.summary=summary;s.items=result.items||[];
     const last=(summary.recent_runs||[])[0];
     const when=last?.started_at?new Date(last.started_at).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"";
-    $("last-scan").textContent=last?("上次采集："+when+" · "+last.status+" · "+last.total_matches+" 条评论 / "+last.total_topics+" 个主题"):"公开需求采集：等待首次运行";
+    let counts={};try{counts=JSON.parse(last?.source_counts_json||"{}")}catch{}
+    const stackState=counts.stackexchange_status==="cooldown"?"冷却中":counts.stackexchange_status==="limited"?"接口限流":counts.stackexchange_status==="completed"?"已执行":counts.stackexchange_status==="failed"?"执行失败":"待验证";
+    const breakdown=("HN "+(counts.hacker_news??"—")+" / Stack Exchange "+(counts.stackexchange??"—")+"（"+stackState+"）");
+    $("last-scan").textContent=last?("上次采集："+when+" · "+last.status+" · "+last.total_matches+" 条证据 / "+last.total_topics+" 个主题 · "+breakdown):"公开需求采集：等待首次运行";
     const stats=summary.stages||[];
     $("stat-total").textContent=fmtNum(totalBy(stats,()=>true));
     $("stat-ready").textContent=fmtNum(totalBy(stats,r=>r.stage==="manual-review"));
@@ -94,7 +97,9 @@ function showDetail(r){
   if(!r.evidence?.length)append(ev,node("p","detail-muted","尚无用户评论或论坛证据。"));
   for(const source of (r.evidence||[]).slice(0,12)){
     const box=node("div","quote");append(box,node("p","",source.note||"该来源未提供摘录"),link(source.url,"查看原始讨论 ↗"));
-    if(source.published_at)append(box,node("small","", "发表："+source.published_at));append(ev,box);}
+    if(source.published_at)append(box,node("small","", "发表："+source.published_at));
+    if(source.attribution)append(box,node("small","",source.attribution));
+    append(ev,box);}
   const serp=detailSection(main,"Google 前十自然结果（原始快照）");
   const raw=r.serp_snapshot;
   if(!raw?.organic?.length)append(serp,node("p","detail-muted","还没有 SERP 快照。未验证竞争难度。"));
@@ -154,7 +159,7 @@ $("scan-now").addEventListener("click",async()=>{
   button.disabled=true;button.textContent="正在采集公开评论…";
   try{
     const data=await api("/api/collect",{method:"POST"});
-    alertMsg("已检查 "+data.topics+" 个需求主题，新增匹配 "+data.matched+" 条评论");
+    alertMsg("已检查 "+data.topics+" 个主题，匹配 "+data.matched+" 条证据（HN "+(data.sources?.hacker_news??0)+" / Stack Exchange "+(data.sources?.stackexchange??0)+"）");
     await load();
   }catch(error){alertMsg(error.message,"error")}
   finally{button.disabled=false;button.textContent="↻ 立即采集"}
