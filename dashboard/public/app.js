@@ -103,6 +103,12 @@ function showDetail(r){
       append(body,link(hit.url,hit.title||hit.domain||"查看排名结果"),node("small","",hit.domain||""));
       append(item,node("b","",hit.rank_group||"—"),body);append(serp,item);}
   }
+  const checklist=detailSection(main,"下一步研究清单");
+  const screen=r.screening||{};
+  if(screen.next_step)append(checklist,node("p","detail-muted","建议阶段："+screen.next_step));
+  if(Array.isArray(screen.blockers)&&screen.blockers.length){
+    for(const blocker of screen.blockers.slice(0,10))append(checklist,node("p","context-line","□ "+blocker));
+  }else append(checklist,node("p","detail-muted","目前没有自动列出的阻碍项；仍需人工判断。"));
   const flags=detailSection(main,"研究备注");
   append(flags,node("p","detail-muted","该词目前："+stageLabel(r.stage)+"。可能相同意图签名："+(r.intent_signature?.replaceAll("|"," · ")||"无")+
     "。自动聚类不能代替 Google SERP 人工判断。"));
