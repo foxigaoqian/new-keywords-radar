@@ -1,0 +1,15 @@
+name = "seo-opportunity-workbench"
+main = "./src/worker.js"
+compatibility_date = "2026-10-13"
+workers_dev = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "seo-opportunity-radar"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "./migrations"
