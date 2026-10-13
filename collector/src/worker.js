@@ -1,5 +1,6 @@
 /** Scheduled collector: uses public HN comments, never claims Google search demand. */
 import {TOPICS,NEED_WORDS} from "./topics.js";
+import {SE_TOPICS,collectStack} from "./stackexchange.js";
 
 const API="https://hn.algolia.com/api/v1/search_by_date";
 const DAYS=180,RESULTS_PER_QUERY=80,MAX_EVIDENCE=6,TIMEOUT=10000;
@@ -113,9 +114,10 @@ export async function ingest(env,topic,evidence,now=Date.now()){
 export async function collect(env,options={}){
   if(!env?.DB)throw new Error("D1 DB not configured");
   const now=options.now??Date.now(),fetcher=options.fetcher||fetch,topics=options.topics||TOPICS;
+  const stackTopics=options.stackTopics??(options.topics?[]:SE_TOPICS);
   const runId=crypto.randomUUID();
   await env.DB.prepare("INSERT INTO collector_runs (id,started_at,status,total_topics,total_matches) VALUES (?,?,'running',?,0)")
-    .bind(runId,new Date(now).toISOString(),topics.length).run();
+    .bind(runId,new Date(now).toISOString(),topics.length+stackTopics.length).run();
   const failures=[],outputs=[];
   for(const topic of topics.slice(0,16)){
     try{
@@ -124,11 +126,18 @@ export async function collect(env,options={}){
       outputs.push({topic:topic.keyword,matched:n});
     }catch(error){failures.push({topic:topic.keyword,reason:String(error?.message||error).slice(0,150)});}
   }
-  const matched=outputs.reduce((n,v)=>n+v.matched,0);
-  const status=failures.length===topics.length?"failed":failures.length?"partial":"completed";
+  const stack=await collectStack(stackTopics,now,options.stackFetcher||fetcher,
+    (topic,questions)=>ingest(env,topic,questions,now));
+  for(const err of stack.errors)failures.push({...err,source:"stackexchange"});
+  const matched=outputs.reduce((n,v)=>n+v.matched,0)+stack.matched;
+  const count=topics.length+stackTopics.length;
+  const successCount=outputs.length+stack.results.length;
+  const status=successCount===0?"failed":failures.length?"partial":"completed";
   await env.DB.prepare("UPDATE collector_runs SET ended_at=?,status=?,total_matches=?,errors_json=? WHERE id=?")
     .bind(new Date().toISOString(),status,matched,JSON.stringify(failures),runId).run();
-  return {run_id:runId,status,total_topics:topics.length,matched,failures,topics:outputs};
+  return {run_id:runId,status,total_topics:count,matched,failures,
+    sources:{hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched},
+    rate_limit_backoff_seconds:stack.backoff_seconds,topics:[...outputs,...stack.results]};
 }
 export default {
   async scheduled(controller,env,ctx){ctx.waitUntil(collect(env).then(result=>{
@@ -145,6 +154,6 @@ export default {
         {status:429,headers:{"content-type":"application/json","cache-control":"no-store"}});
     const result=await collect(env);
     return new Response(JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,
-      failed_topics:result.failures.length}),{headers:{"content-type":"application/json","cache-control":"no-store"}});
+      failed_topics:result.failures.length,sources:result.sources,backoff_seconds:result.rate_limit_backoff_seconds}),{headers:{"content-type":"application/json","cache-control":"no-store"}});
   }
 };
