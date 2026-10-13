@@ -9,7 +9,7 @@ export const TOPICS=[
 {keyword:"full page website screenshot",query:"screenshot",require:[["screenshot","screen capture"],["website","web page","browser","full page"]]},
 {keyword:"bulk file renamer",query:"rename",require:[["rename","renaming"],["file","image","photo","batch","bulk"]]},
 {keyword:"Google Search Console data exporter",query:"search console",require:[["search console","gsc"],["export","data","download","api","bulk"]]},
-{keyword:"local private image converter",query:"image conversion",require:[["image","photo"],["convert","conversion","format"],["privacy","local","browser","upload"]]},
+{keyword:"avatar image format converter",query:"image conversion",require:[["image","photo"],["convert","conversion","format"],["avatar","profile image","profile picture"]]},
 {keyword:"bulk alt text generator",query:"alt text",require:[["alt text","alt-text"],["image","bulk","generate","accessibility"]]},
 {keyword:"audio transcription text editor",query:"transcription",require:[["transcrib","transcript","transcription"],["edit","fix","correct","text","timestamp"]]}
 ];
