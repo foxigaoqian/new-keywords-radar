@@ -119,5 +119,17 @@ export default {
   async scheduled(controller,env,ctx){ctx.waitUntil(collect(env).then(result=>{
     console.log("HN collection summary",JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,failures:result.failures.length}));
   }).catch(error=>{console.error("HN collector error",String(error?.message||error).slice(0,180));}));},
-  async fetch(){return new Response("Not found",{status:404,headers:{"Cache-Control":"no-store"}});}
+  async fetch(request,env){
+    const pathname=new URL(request.url).pathname;
+    if(request.method!=="POST"||pathname!=="/internal/collect"||!env?.DB)
+      return new Response("Not found",{status:404});
+    // This Worker has no public route or workers.dev; the dashboard uses a private service binding.
+    const latest=await env.DB.prepare("SELECT started_at,status FROM collector_runs ORDER BY started_at DESC LIMIT 1").first();
+    if(latest&&Date.now()-Date.parse(latest.started_at)<10*60*1000)
+      return new Response(JSON.stringify({started:false,message:"Recently checked; retry after 10 minutes"}),
+        {status:429,headers:{"content-type":"application/json","cache-control":"no-store"}});
+    const result=await collect(env);
+    return new Response(JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,
+      failed_topics:result.failures.length}),{headers:{"content-type":"application/json","cache-control":"no-store"}});
+  }
 };
