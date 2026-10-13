@@ -149,7 +149,11 @@ def evaluate(row, review):
         stage = "needs-evidence"
     else:
         stage = "hypothesis"
-    return {**row, "intent_signature": intent.signature(row["keyword"]), "stage": stage, "rubric_score": min(100, score), "evidence": evidence,
+    return {**row, "intent_signature": intent.signature(row["keyword"]), "stage": stage,
+            "keyword_idea_seed": clean(review.get("keyword_idea_seed")) or None,
+            "keyword_idea_source": clean(review.get("keyword_idea_source")) or None,
+            "provider_keyword_difficulty": number(review.get("provider_keyword_difficulty")),
+            "provider_kd_note": clean(review.get("provider_kd_note")) or None, "rubric_score": min(100, score), "evidence": evidence,
             "independent_evidence_sites": sorted(hosts),
             "monthly_searches": int(vol) if has_volume else None,
             "monthly_searches_source": source if has_volume else None,
@@ -180,7 +184,7 @@ def build(data, radar=None):
             reviews[k] = review
             if k not in queue:
                 row = base(review["keyword"])
-                row["origins"] = ["manual-entry"]
+                row["origins"] = ["provider-keyword-suggestion" if review.get("keyword_idea_source") else "manual-entry"]
                 merge(queue, row)
     rows = []
     for k, row in queue.items():
