@@ -108,3 +108,25 @@ test("redacts email addresses from stored quote excerpts",()=>{
   assert.equal(data[0].note.includes("private@example.com"),false);
   assert.equal(data[0].note.includes("[email redacted]"),true);
 });
+
+test("multi-source daily collector merges real Stack Exchange questions and records counts",async()=>{
+  const db=new FakeDB(),env={DB:db},q={
+    keyword:"bulk image compressor",query:"batch image compress",site:"superuser",
+    require:[["image","photo","picture"],["compress","reduce","size"]]
+  };
+  const stackFetcher=async()=>({ok:true,json:async()=>({items:[{
+    question_id:555123,title:"How do I compress many image files in bulk?",
+    body:"I have thousands of photos that I need to compress",
+    creation_date:Math.floor(Date.parse("2026-10-10T02:00:00Z")/1000),
+    link:"https://superuser.com/questions/555123/compress-image-files"
+  }]})});
+  const result=await collect(env,{now,topics:[],stackTopics:[q],stackFetcher});
+  assert.equal(result.sources.hacker_news,0);
+  assert.equal(result.sources.stackexchange,1);
+  assert.equal(result.total_topics,1);
+  assert.equal(db.records.size,1);
+  const stored=JSON.parse([...db.records.values()][0].record_json);
+  assert.equal(stored.evidence[0].source,"stackexchange-api-v2.3");
+  assert.equal(stored.monthly_searches,null);
+  assert.deepEqual([...db.runs.values()][0].sources,{hacker_news:0,stackexchange:1});
+});
