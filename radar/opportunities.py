@@ -123,7 +123,7 @@ def evaluate(row, review):
         evidence.append({"type": clean(item.get("type")) or "other", "url": url,
                          "note": clean(item.get("note")), "published_at": clean(item.get("published_at")),
                          "collected_at": clean(item.get("collected_at")), "source": clean(item.get("source")),
-                         "verified": False})
+                         "attribution": clean(item.get("attribution")), "verified": False})
     vol = number(review.get("monthly_searches"))
     source = clean(review.get("monthly_searches_source"))
     has_volume = vol is not None and bool(source)
