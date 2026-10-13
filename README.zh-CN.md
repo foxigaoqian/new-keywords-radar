@@ -209,3 +209,30 @@ MIT。这套雷达提取自 [agentskillshub.top](https://agentskillshub.top) 背
 在原有新词和趋势发现能力之外，新增「人群 → 场景 → 动作 → 痛点/限制 → 关键词假设 → 人工验证」的离线机会队列。支持合并原来的 report.json，严格区分猜测和真实搜索量。详见 [我们的 SEO 机会雷达改造方案](docs/SEO-OPPORTUNITY-ROADMAP.zh-CN.md)。
 
 运行：`python -m radar opportunities --input opportunities.example.json --out opportunities.md`
+
+### V2：真实用户需求研究（新增）
+
+本 Fork 现在支持**两条独立的发现路线**：原版 AI 新词趋势监控，以及人群、场景、动作、限制条件的用户任务研究。
+
+请先修改 research.example.json 内的监控词；示例内容不是推荐关键词。
+
+    # ① 采集 Hacker News 公开评论（免费）
+    python -m radar research --input research.example.json --live --out research.hn.json
+
+    # ② 将真实评论整理为用户画像、任务和候选搜索词（可选付费，需 AISA_API_KEY）
+    python -m radar journeys --input research.hn.json --ai --out journeys.json
+
+    # ③ 加入证据，生成关键词研究队列（不收费）
+    python -m radar opportunities --input journeys.json --research-json research.hn.json --out opportunities.md
+
+    # ④ 可选 DataForSEO 正式 SERP/Google Ads 接口（需要 DATAFORSEO_LOGIN/PASSWORD；显式付费）
+    python -m radar verify --input opportunities.json --limit 5 --paid --out research.seo.json
+
+    # ⑤ 合并真实搜索量、SERP 快照与用户讨论
+    python -m radar opportunities --input journeys.json --research-json research.hn.json --research-json research.seo.json --out opportunities.md
+
+无需密钥也能运行所有离线示例：命令的 --fixture 参数有测试数据可用。新工作流 .github/workflows/research.yml 默认关闭，设置仓库变量 RESEARCH_ENABLED=true 后才运行；不会自动花钱调用 DataForSEO。
+
+SEO 研究看板目前是 Markdown + JSON，**Cloudflare Web UI、Reddit 正式接入、自动 SERP 分类和意图聚类仍待开发**。搜索量必须有来源；HN 评论只是问题证据，AI 生成搜索词只是待验证假设。
+
+完整说明：[独立开发者 SEO 机会雷达方案](docs/SEO-OPPORTUNITY-ROADMAP.zh-CN.md)。
