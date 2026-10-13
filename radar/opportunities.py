@@ -19,9 +19,9 @@ def items(value):
 
 def base(keyword, kind="generic"):
     return {"keyword": clean(keyword), "kind": kind, "origins": [], "personas": [],
-            "scenes": [], "actions": [], "constraints": [], "pains": [], "signals": []}
+            "scenes": [], "actions": [], "constraints": [], "pains": [], "signals": [], "evidence_links": []}
 
-FIELDS = ("origins", "personas", "scenes", "actions", "constraints", "pains", "signals")
+FIELDS = ("origins", "personas", "scenes", "actions", "constraints", "pains", "signals", "evidence_links")
 
 def merge(queue, row):
     k = key(row.get("keyword"))
@@ -55,7 +55,8 @@ def persona_rows(data):
                         row.update(origins=["persona-hypothesis"], personas=[name],
                                    scenes=[scene.get("name", "")], actions=[action.get("name", "")],
                                    constraints=items(action.get("constraints")),
-                                   pains=[action.get("pain", "")])
+                                   pains=[action.get("pain", "")],
+                                   evidence_links=items(action.get("evidence_links")))
                         yield row
 
 def radar_rows(data):
@@ -180,7 +181,16 @@ def build(data, radar=None):
                 row = base(review["keyword"])
                 row["origins"] = ["manual-entry"]
                 merge(queue, row)
-    rows = [evaluate(row, reviews.get(k, {})) for k, row in queue.items()]
+    rows = []
+    for k, row in queue.items():
+        review = dict(reviews.get(k, {}))
+        # Problem evidence backs the TASK, not proof that the proposed keyword is searched.
+        if row.get("evidence_links"):
+            review["evidence"] = items(review.get("evidence")) + [
+                {"url": u, "type": "journey-task-source", "source": "AI-task-hypothesis",
+                 "note": "Original comment supports the task, not necessarily the keyword wording."}
+                for u in row["evidence_links"]]
+        rows.append(evaluate(row, review))
     rows.sort(key=lambda r: (STAGES[r["stage"]], -r["rubric_score"], key(r["keyword"])))
     return {"generated_at": date.today().isoformat(), "count": len(rows),
             "stage_counts": {stage: sum(r["stage"] == stage for r in rows) for stage in STAGES},
