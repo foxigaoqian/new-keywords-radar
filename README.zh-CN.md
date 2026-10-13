@@ -203,3 +203,9 @@ python -m pytest -q tests
 ## 许可
 
 MIT。这套雷达提取自 [agentskillshub.top](https://agentskillshub.top) 背后每天在跑的版本。
+
+## 本 Fork 新增：人群场景 SEO 机会雷达
+
+在原有新词和趋势发现能力之外，新增「人群 → 场景 → 动作 → 痛点/限制 → 关键词假设 → 人工验证」的离线机会队列。支持合并原来的 report.json，严格区分猜测和真实搜索量。详见 [我们的 SEO 机会雷达改造方案](docs/SEO-OPPORTUNITY-ROADMAP.zh-CN.md)。
+
+运行：`python -m radar opportunities --input opportunities.example.json --out opportunities.md`
