@@ -130,7 +130,7 @@ test("multi-source daily collector merges real Stack Exchange questions and reco
   const stored=JSON.parse([...db.records.values()][0].record_json);
   assert.equal(stored.evidence[0].source,"stackexchange-api-v2.3");
   assert.equal(stored.monthly_searches,null);
-  assert.deepEqual([...db.runs.values()][0].sources,{hacker_news:0,stackexchange:1});
+  assert.deepEqual([...db.runs.values()][0].sources,{hacker_news:0,stackexchange:1,stackexchange_status:"completed"});
 });
 
 test("provider cooldown prevents repeat requests and preserves HN independently",async()=>{
