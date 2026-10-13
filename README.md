@@ -244,3 +244,8 @@ Run: `python -m radar opportunities --input opportunities.example.json --out opp
 The HN collector is free; the LLM requires AISA_API_KEY, and DataForSEO requires DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD. Paid commands must be explicitly invoked. GitHub's demand-research workflow is disabled until RESEARCH_ENABLED is set to true. Replace demonstration queries with your actual hypotheses.
 
 **No automatic claims of Google search demand, organic keyword difficulty, or ranking success.** See [the full roadmap](docs/SEO-OPPORTUNITY-ROADMAP.zh-CN.md).
+
+
+## V3: deployed Cloudflare opportunity workbench
+
+Private dashboard: https://seo-opportunity-workbench.foxigaoqian-soocly.workers.dev/ . D1-backed opportunities, review decisions, evidence URLs, raw SERPs, and conservative duplicate-intent suggestions. All data APIs require a strong ADMIN_TOKEN secret, and the deployed database starts empty. See [Chinese setup and security guide](dashboard/README.zh-CN.md). Automatic research-to-dashboard sync remains opt-in.

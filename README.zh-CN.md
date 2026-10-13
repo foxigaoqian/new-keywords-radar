@@ -236,3 +236,14 @@ MIT。这套雷达提取自 [agentskillshub.top](https://agentskillshub.top) 背
 SEO 研究看板目前是 Markdown + JSON，**Cloudflare Web UI、Reddit 正式接入、自动 SERP 分类和意图聚类仍待开发**。搜索量必须有来源；HN 评论只是问题证据，AI 生成搜索词只是待验证假设。
 
 完整说明：[独立开发者 SEO 机会雷达方案](docs/SEO-OPPORTUNITY-ROADMAP.zh-CN.md)。
+
+
+## V3：已上线的 Cloudflare 机会工作台
+
+- 工作台地址：https://seo-opportunity-workbench.foxigaoqian-soocly.workers.dev/
+- 私有 D1 数据库，所有研究数据与人工决定均需要管理员访问密钥。服务默认是空队列，使用 opportunities.json 导入已研究的候选词。
+- 提供关键词搜索、阶段/状态筛选、评论证据、Google 前十快照、人工处理记录，以及只提示不自动合并的意图聚类。
+- Python 自动筛选会列出缺少的需求证据、搜索量验证、SERP 分析、开发估时等下一步行动，不虚报能排名的概率。
+- 新增可选择的 GitHub Actions 到 Cloudflare 同步；未配置 WORKBENCH_URL 和 WORKBENCH_ADMIN_TOKEN 时不会推送。
+
+[部署安全说明与详细操作](dashboard/README.zh-CN.md)。

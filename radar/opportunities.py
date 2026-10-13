@@ -5,6 +5,7 @@ import json
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
+from . import intent, screening
 
 STAGES = {"manual-review": 0, "needs-evidence": 1, "hypothesis": 2}
 
@@ -148,7 +149,7 @@ def evaluate(row, review):
         stage = "needs-evidence"
     else:
         stage = "hypothesis"
-    return {**row, "stage": stage, "rubric_score": min(100, score), "evidence": evidence,
+    return {**row, "intent_signature": intent.signature(row["keyword"]), "stage": stage, "rubric_score": min(100, score), "evidence": evidence,
             "independent_evidence_sites": sorted(hosts),
             "monthly_searches": int(vol) if has_volume else None,
             "monthly_searches_source": source if has_volume else None,
@@ -191,8 +192,11 @@ def build(data, radar=None):
                  "note": "Original comment supports the task, not necessarily the keyword wording."}
                 for u in row["evidence_links"]]
         rows.append(evaluate(row, review))
+    for r in rows:
+        r["screening"] = screening.analyze(r)
     rows.sort(key=lambda r: (STAGES[r["stage"]], -r["rubric_score"], key(r["keyword"])))
     return {"generated_at": date.today().isoformat(), "count": len(rows),
+            "suggested_intent_groups": intent.suggest(rows),
             "stage_counts": {stage: sum(r["stage"] == stage for r in rows) for stage in STAGES},
             "notice": "Scores only prioritize manual research; no automatic keyword validation.",
             "opportunities": rows}
