@@ -24,7 +24,21 @@ def main():
     assert code == 200 and '"ready":true' in health, ("health",code,health)
     code,body=open_public("/api/items")
     assert code == 401 and "Unauthorized" in body, ("secure endpoint",code,body[:180])
-    print("Live Worker smoke passed: UI, assets, D1/token bindings, anonymous API rejection.")
+    assert "seo-file-input" in html, "V6 SEO import control missing"
+    assert "renderAssessment" in js, "V6 manual SERP controls missing"
+    for path in ("/api/items/" + "a"*64 + "/assessment", "/api/export"):
+        code,body=open_public(path)
+        assert code==401 and "Unauthorized" in body, ("V6 private read",path,code,body[:180])
+    # Only anonymous writes are tested, never a real business decision or paid API call.
+    req=urllib.request.Request(BASE+"/api/import-seo",data=b'{}',method="POST",
+      headers={"Content-Type":"application/json","User-Agent":"seo-radar-smoke/1.0"})
+    try:
+        with urllib.request.urlopen(req,timeout=20) as response:
+            status=response.status
+    except urllib.error.HTTPError as exc:
+        status=exc.code
+    assert status==401,("anonymous SEO import must be blocked",status)
+    print("Live V6 smoke passed: UI, new controls, D1/token bindings, anonymous V6 API rejection.")
 
 if __name__ == "__main__":
     main()

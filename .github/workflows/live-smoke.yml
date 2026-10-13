@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feat/opportunity-workbench-v3
+      - main
     paths:
       - dashboard/**
       - scripts/workbench_live_smoke.py
