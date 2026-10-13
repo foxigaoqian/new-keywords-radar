@@ -1,7 +1,7 @@
 name = "seo-opportunity-workbench"
 main = "./src/worker.js"
 compatibility_date = "2026-10-13"
-workers_dev = false
+workers_dev = true
 
 [assets]
 directory = "./public"
@@ -13,3 +13,6 @@ binding = "DB"
 database_name = "seo-opportunity-radar"
 database_id = "c6bd32b0-5508-48b1-a544-4578bf478d96"
 migrations_dir = "./migrations"
+
+[secrets]
+required = ["ADMIN_TOKEN"]
