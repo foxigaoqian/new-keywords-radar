@@ -36,7 +36,9 @@ async function load(){
     s.summary=summary;s.items=result.items||[];
     const last=(summary.recent_runs||[])[0];
     const when=last?.started_at?new Date(last.started_at).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"";
-    $("last-scan").textContent=last?("上次采集："+when+" · "+last.status+" · "+last.total_matches+" 条评论 / "+last.total_topics+" 个主题"):"公开需求采集：等待首次运行";
+    let counts={};try{counts=JSON.parse(last?.source_counts_json||"{}")}catch{}
+    const breakdown=("HN "+(counts.hacker_news??"—")+" / Stack Exchange "+(counts.stackexchange??"—"));
+    $("last-scan").textContent=last?("上次采集："+when+" · "+last.status+" · "+last.total_matches+" 条证据 / "+last.total_topics+" 个主题 · "+breakdown):"公开需求采集：等待首次运行";
     const stats=summary.stages||[];
     $("stat-total").textContent=fmtNum(totalBy(stats,()=>true));
     $("stat-ready").textContent=fmtNum(totalBy(stats,r=>r.stage==="manual-review"));
@@ -154,7 +156,7 @@ $("scan-now").addEventListener("click",async()=>{
   button.disabled=true;button.textContent="正在采集公开评论…";
   try{
     const data=await api("/api/collect",{method:"POST"});
-    alertMsg("已检查 "+data.topics+" 个需求主题，新增匹配 "+data.matched+" 条评论");
+    alertMsg("已检查 "+data.topics+" 个主题，匹配 "+data.matched+" 条证据（HN "+(data.sources?.hacker_news??0)+" / Stack Exchange "+(data.sources?.stackexchange??0)+"）");
     await load();
   }catch(error){alertMsg(error.message,"error")}
   finally{button.disabled=false;button.textContent="↻ 立即采集"}
