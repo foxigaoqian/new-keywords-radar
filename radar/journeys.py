@@ -35,11 +35,11 @@ def parse_reply(reply, allowed):
         return None
     if not isinstance(item, dict) or item.get("skip"):
         return None
-    refs = [r for r in item.get("evidence_ids", []) if r in allowed]
+    refs = [r for r in item.get("evidence_ids", []) if isinstance(r, str) and r in allowed] if isinstance(item.get("evidence_ids"), list) else []
     if not refs or not item.get("action") or not item.get("pain"):
         return None
     keys = []
-    for phrase in item.get("keywords", []):
+    for phrase in (item.get("keywords") if isinstance(item.get("keywords"), list) else []):
         p = " ".join(str(phrase).lower().split())
         if 2 <= len(p.split()) <= 7 and len(p) <= 80 and p not in keys:
             keys.append(p)
@@ -64,7 +64,7 @@ def generate(data, model="gpt-4.1-mini", per_day=5, chat=None):
         if not isinstance(row, dict):
             continue
         kw = str(row.get("keyword") or "").strip()
-        raw = [e for e in row.get("evidence", []) if isinstance(e, dict) and e.get("url") and e.get("note")]
+        raw = [e for e in (row.get("evidence") or []) if isinstance(e, dict) and e.get("url") and e.get("note")]
         if not kw or not raw:
             continue
         allowed = {f"e{i}": e["url"] for i, e in enumerate(raw[:8])}
