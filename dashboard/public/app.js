@@ -96,7 +96,9 @@ function showDetail(r){
   if(!r.evidence?.length)append(ev,node("p","detail-muted","尚无用户评论或论坛证据。"));
   for(const source of (r.evidence||[]).slice(0,12)){
     const box=node("div","quote");append(box,node("p","",source.note||"该来源未提供摘录"),link(source.url,"查看原始讨论 ↗"));
-    if(source.published_at)append(box,node("small","", "发表："+source.published_at));append(ev,box);}
+    if(source.published_at)append(box,node("small","", "发表："+source.published_at));
+    if(source.attribution)append(box,node("small","",source.attribution));
+    append(ev,box);}
   const serp=detailSection(main,"Google 前十自然结果（原始快照）");
   const raw=r.serp_snapshot;
   if(!raw?.organic?.length)append(serp,node("p","detail-muted","还没有 SERP 快照。未验证竞争难度。"));
