@@ -114,6 +114,14 @@ export async function ingest(env,topic,evidence,now=Date.now()){
 export async function collect(env,options={}){
   if(!env?.DB)throw new Error("D1 DB not configured");
   const now=options.now??Date.now(),fetcher=options.fetcher||fetch,topics=options.topics||TOPICS;
+  // Defense in depth: even if Cloudflare unexpectedly fires an old Cron schedule
+  // repeatedly, the scheduled task must not repeat external requests within 20h.
+  if(options.skipIfRecent){
+    const recent=await env.DB.prepare("SELECT started_at FROM collector_runs WHERE status IN ('completed','partial') ORDER BY started_at DESC LIMIT 1").first();
+    if(recent && Number.isFinite(Date.parse(recent.started_at)) && now-Date.parse(recent.started_at)<20*3600*1000)
+      return {status:"skipped",reason:"recent successful or partial scheduled scan",matched:0,total_topics:0,
+              failures:[],sources:{hacker_news:0,stackexchange:0,stackexchange_status:"skipped"},topics:[]};
+  }
   const stackTopics=options.stackTopics??(options.topics?[]:SE_TOPICS);
   const runId=crypto.randomUUID();
   await env.DB.prepare("INSERT INTO collector_runs (id,started_at,status,total_topics,total_matches) VALUES (?,?,'running',?,0)")
@@ -161,7 +169,7 @@ export async function collect(env,options={}){
     rate_limit_backoff_seconds:stack.backoff_seconds,topics:[...outputs,...stack.results]};
 }
 export default {
-  async scheduled(controller,env,ctx){ctx.waitUntil(collect(env).then(result=>{
+  async scheduled(controller,env,ctx){ctx.waitUntil(collect(env,{skipIfRecent:true}).then(result=>{
     console.log("Public problem collection summary",JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,failures:result.failures.length}));
   }).catch(error=>{console.error("HN collector error",String(error?.message||error).slice(0,180));}));},
   async fetch(request,env){
