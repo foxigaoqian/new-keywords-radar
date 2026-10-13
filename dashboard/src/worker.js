@@ -71,7 +71,8 @@ async function summary(env){
   const stats=await env.DB.prepare("SELECT review_status,stage,count(*) AS n FROM opportunities GROUP BY review_status,stage").all();
   const dup=await env.DB.prepare("SELECT intent_signature,count(*) AS n FROM opportunities WHERE length(intent_signature)>0"+
     " GROUP BY intent_signature HAVING count(*)>1 ORDER BY n DESC LIMIT 30").all();
-  return send({stages:stats.results||[],possible_overlaps:dup.results||[]});
+  const scans=await env.DB.prepare("SELECT started_at,ended_at,status,total_topics,total_matches,errors_json FROM collector_runs ORDER BY started_at DESC LIMIT 5").all();
+  return send({stages:stats.results||[],possible_overlaps:dup.results||[],recent_runs:scans.results||[]});
 }
 async function decision(env,id,data){
   if(!/^[a-f0-9]{64}$/.test(id))return fail("Invalid id",400);
@@ -95,6 +96,12 @@ async function run(req,env){
   const forbidden=await auth(req,env);if(forbidden)return forbidden;
   if(url.pathname==="/api/items"&&req.method==="GET")return listing(env,url);
   if(url.pathname==="/api/summary"&&req.method==="GET")return summary(env);
+  if(url.pathname==="/api/collect"&&req.method==="POST"){
+    if(!env?.COLLECTOR)return fail("Collector service binding unavailable",503);
+    const downstream=await env.COLLECTOR.fetch(new Request("https://collector.internal/internal/collect",{method:"POST"}));
+    let data;try{data=await downstream.json()}catch{data={error:"Collector did not return valid JSON"}}
+    return send(data,downstream.status);
+  }
   if(url.pathname==="/api/export"&&req.method==="GET"){
     const rows=await env.DB.prepare("SELECT * FROM opportunities ORDER BY rubric_score DESC LIMIT 5000").all();
     return send({exported_at:new Date().toISOString(),opportunities:(rows.results||[]).map(display)});

@@ -32,7 +32,7 @@
     <main id="workspace" hidden>
       <section class="page-heading">
         <div><div class="eyebrow">RESEARCH COMMAND CENTER / V3</div><h1>今天，哪些需求<br><em>值得我们去做？</em></h1><p class="muted">新词趋势 × 用户真实场景 × Google 搜索证据。先发现，再验证，最后决定。</p></div>
-        <div class="page-actions"><label class="secondary upload-btn" for="file-input">↥ 导入机会 JSON</label><input id="file-input" type="file" accept=".json,application/json" hidden><button id="export-btn" class="ghost" type="button">↧ 导出备份</button></div>
+        <div class="page-actions"><label class="secondary upload-btn" for="file-input">↥ 导入机会 JSON</label><input id="file-input" type="file" accept=".json,application/json" hidden><button id="scan-now" class="ghost" type="button">↻ 立即采集</button><button id="export-btn" class="ghost" type="button">↧ 导出备份</button></div>
       </section>
       <section class="stats" aria-label="机会统计">
         <div class="stat"><small>总机会 <span>ALL LEADS</span></small><strong id="stat-total">—</strong><div class="hint">已导入的关键词候选</div></div>
@@ -40,6 +40,7 @@
         <div class="stat"><small>需要补证 <span>RESEARCH</span></small><strong id="stat-needs">—</strong><div class="hint">尚不能判断 SEO 机会</div></div>
         <div class="stat"><small>计划开发 <span>BUILD</span></small><strong id="stat-build">—</strong><div class="hint">你亲自确认要推进的机会</div></div>
       </section>
+      <section class="capture-status" aria-live="polite"><span class="capture-dot">●</span> <span id="last-scan">公开需求采集：等待首次运行</span></section>
       <section class="panel">
         <div class="section-head"><div><h2>机会队列 <span class="counter" id="list-count"></span></h2><p>评分仅用于排序调研优先级，不等于排名概率</p></div><button id="reload" class="ghost tiny">↻ 刷新</button></div>
         <div class="filters">

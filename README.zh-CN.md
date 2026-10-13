@@ -247,3 +247,14 @@ SEO 研究看板目前是 Markdown + JSON，**Cloudflare Web UI、Reddit 正式�
 - 新增可选择的 GitHub Actions 到 Cloudflare 同步；未配置 WORKBENCH_URL 和 WORKBENCH_ADMIN_TOKEN 时不会推送。
 
 [部署安全说明与详细操作](dashboard/README.zh-CN.md)。
+
+
+## V4：每日自动采集真实用户痛点（Cloudflare）
+
+已新增独立的 Cloudflare Cron Worker，不用 AI 密钥或 DataForSEO：每天中国时间 **10:20** 调用 Hacker News 的公开评论搜索，按用户的动作和实际麻烦过滤并保留原文链接、日期，自动写入现有 D1 机会库。当前监控 12 类工具任务。
+
+工作台新增「立即采集」和最近运行结果，手动触发需要管理员访问密钥；对外不暴露采集器接口。初次实测已成功读写 HN 和 D1，筛掉了误入的求职资料，严格筛选保留少量研究候选。没有任何词被自动标记为已验证低竞争。
+
+地址：https://seo-opportunity-workbench.foxigaoqian-soocly.workers.dev/
+
+[采集逻辑、人工验证与故障排查](collector/README.zh-CN.md)

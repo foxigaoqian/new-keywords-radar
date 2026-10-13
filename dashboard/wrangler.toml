@@ -16,3 +16,7 @@ migrations_dir = "./migrations"
 
 [secrets]
 required = ["ADMIN_TOKEN"]
+
+[[services]]
+binding = "COLLECTOR"
+service = "seo-demand-collector"

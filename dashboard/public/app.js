@@ -34,6 +34,9 @@ async function load(){
   if(s.query)query.set("q",s.query);if(s.intent)query.set("intent",s.intent);
   try{const [summary,result]=await Promise.all([api("/api/summary"),api("/api/items?"+query)]);
     s.summary=summary;s.items=result.items||[];
+    const last=(summary.recent_runs||[])[0];
+    const when=last?.started_at?new Date(last.started_at).toLocaleString("zh-CN",{timeZone:"Asia/Shanghai"}):"";
+    $("last-scan").textContent=last?("上次采集："+when+" · "+last.status+" · "+last.total_matches+" 条评论 / "+last.total_topics+" 个主题"):"公开需求采集：等待首次运行";
     const stats=summary.stages||[];
     $("stat-total").textContent=fmtNum(totalBy(stats,()=>true));
     $("stat-ready").textContent=fmtNum(totalBy(stats,r=>r.stage==="manual-review"));
@@ -146,6 +149,16 @@ $("login-form").addEventListener("submit",login);$("logout").addEventListener("c
 $("close-drawer").addEventListener("click",closeDetail);$("scrim").addEventListener("click",closeDetail);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("drawer").hidden)closeDetail()});
 $("file-input").addEventListener("change",importFile);$("export-btn").addEventListener("click",exportData);
+$("scan-now").addEventListener("click",async()=>{
+  const button=$("scan-now");
+  button.disabled=true;button.textContent="正在采集公开评论…";
+  try{
+    const data=await api("/api/collect",{method:"POST"});
+    alertMsg("已检查 "+data.topics+" 个需求主题，新增匹配 "+data.matched+" 条评论");
+    await load();
+  }catch(error){alertMsg(error.message,"error")}
+  finally{button.disabled=false;button.textContent="↻ 立即采集"}
+});
 $("reload").addEventListener("click",load);
 let searchTimer;$("search").addEventListener("input",e=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{s.query=e.target.value.trim();s.offset=0;load()},240)});
 $("filter-status").addEventListener("change",e=>{s.status=e.target.value;s.offset=0;load()});
