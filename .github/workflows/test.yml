@@ -17,3 +17,14 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest -q tests
+
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check dashboard/src/worker.js
+      - run: node --check dashboard/public/app.js
+      - run: node --test dashboard/tests/*.test.mjs
