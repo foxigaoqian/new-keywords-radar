@@ -133,15 +133,15 @@ export async function collect(env,options={}){
   const count=topics.length+stackTopics.length;
   const successCount=outputs.length+stack.results.length;
   const status=successCount===0?"failed":failures.length?"partial":"completed";
-  await env.DB.prepare("UPDATE collector_runs SET ended_at=?,status=?,total_matches=?,errors_json=? WHERE id=?")
-    .bind(new Date().toISOString(),status,matched,JSON.stringify(failures),runId).run();
+  await env.DB.prepare("UPDATE collector_runs SET ended_at=?,status=?,total_matches=?,errors_json=?,source_counts_json=? WHERE id=?")
+    .bind(new Date().toISOString(),status,matched,JSON.stringify(failures),JSON.stringify({hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched}),runId).run();
   return {run_id:runId,status,total_topics:count,matched,failures,
     sources:{hacker_news:outputs.reduce((n,v)=>n+v.matched,0),stackexchange:stack.matched},
     rate_limit_backoff_seconds:stack.backoff_seconds,topics:[...outputs,...stack.results]};
 }
 export default {
   async scheduled(controller,env,ctx){ctx.waitUntil(collect(env).then(result=>{
-    console.log("HN collection summary",JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,failures:result.failures.length}));
+    console.log("Public problem collection summary",JSON.stringify({status:result.status,topics:result.total_topics,matched:result.matched,failures:result.failures.length}));
   }).catch(error=>{console.error("HN collector error",String(error?.message||error).slice(0,180));}));},
   async fetch(request,env){
     const pathname=new URL(request.url).pathname;
