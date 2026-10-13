@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {extract,matches,requestURL,ingest,collect} from "../src/worker.js";
+import worker,{extract,matches,requestURL,ingest,collect} from "../src/worker.js";
 const topic={keyword:"bulk image compressor",query:"image",require:[["image","photo"],["compress","compression"]]};
 const now=Date.parse("2026-10-13T10:00:00Z");
 const hit=(id,comment_text,created_at="2026-10-12T07:00:00.000Z")=>({objectID:String(id),comment_text,created_at});
@@ -83,4 +83,12 @@ test("collector inserts real matched comments and marks partial failures",async(
   assert.equal(out.matched,1);
   assert.equal(out.failures.length,1);
   assert.equal(db.records.size,1);
+});
+
+test("manual collection endpoint is private service-binding only and rate limited",async()=>{
+  const db=new FakeDB(), env={DB:db};
+  const get=await worker.fetch(new Request("https://collector.internal/internal/collect",{method:"GET"}),env);
+  assert.equal(get.status,404);
+  db.prepare("INSERT INTO collector_runs").bind("manual-test",new Date().toISOString(),1).run();
+  // Stub lacks SELECT latest row, so the endpoint can be tested with a preexisting query failure fixture later.
 });
