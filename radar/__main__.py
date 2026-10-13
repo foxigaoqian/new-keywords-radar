@@ -28,7 +28,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import breakout, config, gsc, new_sites, notify, opportunities, report, review, sitemaps, sources, store, usecases
+from . import breakout, config, gsc, new_sites, notify, opportunities, report, research, review, seo_verify, sitemaps, sources, store, usecases
 from .i18n import t
 
 SKIPPABLE = {"x", "hf", "breakout", "sitemaps", "newsites", "gsc", "review", "judge", "usecases"}
@@ -98,6 +98,11 @@ def cmd_daily(args, cfg: dict, state: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    actual = sys.argv[1:] if argv is None else argv
+    if actual and actual[0] == "research":
+        return research.main(actual[1:])
+    if actual and actual[0] == "verify":
+        return seo_verify.main(actual[1:])
     p = argparse.ArgumentParser(prog="python -m radar", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["daily", "sources", "opportunities"])
     p.add_argument("--config", default="config.json")
@@ -107,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--new-sites", action="store_true", help="run the weekly new-site signal today")
     p.add_argument("--mail", action="store_true", help="mail the report (see radar/notify.py)")
     p.add_argument("--input", default="opportunities.example.json", help="persona task hypotheses JSON for opportunities command")
+    p.add_argument("--research-json", action="append", help="HN or SEO research JSON; repeatable")
     p.add_argument("--radar-json", help="optional daily report.json to merge trend signals")
     args = p.parse_args(argv)
     if args.command == "opportunities":
